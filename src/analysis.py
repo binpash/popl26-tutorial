@@ -26,72 +26,77 @@ def parse_shell_to_asts(input_script_path : str):
         )
     return typed_ast_objects
 
-def transform_node(node):
+def visit_node(node):
     match node:
         case AST.PipeNode():
             return AST.PipeNode(
-            items=[transform_node(node) for node in node.items],
+            items=[visit_node(node) for node in node.items],
             **{k: v for k, v in vars(node).items() if k != "items"}
             )
         case AST.CommandNode():
             if not node.arguments and not node.assignments:
                 return node
-            assignments = [transform_node(ass) for ass in node.assignments]
-            arguments = [transform_node(arg) for arg in node.arguments]
+            assignments = [visit_node(ass) for ass in node.assignments]
+            arguments = [visit_node(arg) for arg in node.arguments]
 
             return AST.CommandNode(
                     arguments=arguments,
                     assignments=assignments,
                     **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments")})
         case AST.AssignNode():
-            val = [transform_node(v) for v in node.val]
+            val = [visit_node(v) for v in node.val]
             return AST.AssignNode(
                     val=val,
                     **{k: v for k, v in vars(node).items() if k != "val"})
         case AST.BArgChar():
             return AST.BArgChar(
-                    node=transform_node(node.node),
+                    node=visit_node(node.node),
                     **{k: v for k, v in vars(node).items() if k != "node"})
         case AST.QArgChar():
             return AST.QArgChar(
-                    arg=[transform_node(n) for n in node.arg],
+                    arg=[visit_node(n) for n in node.arg],
                     **{k: v for k, v in vars(node).items() if k != "arg"})
         case AST.DefunNode():
             return AST.DefunNode(
-                body=transform_node(node.body),
+                body=visit_node(node.body),
                 **{k: v for k, v in vars(node).items() if k != "body"}
             )
         case AST.ForNode():
             return AST.ForNode(
-                body=transform_node(node.body),
-                argument=[transform_node(n) for n in node.argument],
+                body=visit_node(node.body),
+                argument=[visit_node(n) for n in node.argument],
                 **{k: v for k, v in vars(node).items() if k not in ("body", "argument")}
             )
         case AST.WhileNode():
             return AST.WhileNode(
-                    test=transform_node(node.test),
-                    body=transform_node(node.body),
+                    test=visit_node(node.test),
+                    body=visit_node(node.body),
                     **{k: v for k, v in vars(node).items() if k not in ("test", "body")})
         case AST.SemiNode():
             return AST.SemiNode(
-                    left_operand=transform_node(node.left_operand),
-                    right_operand=transform_node(node.right_operand),
+                    left_operand=visit_node(node.left_operand),
+                    right_operand=visit_node(node.right_operand),
                     **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")})
         case AST.RedirNode():
             return AST.RedirNode(
-                    node=transform_node(node.node),
-                    redir_list=[transform_node(n) for n in node.redir_list],
+                    node=visit_node(node.node),
+                    redir_list=[visit_node(n) for n in node.redir_list],
                     **{k: v for k, v in vars(node).items() if k not in ("node", "redir_list")})
         case AST.FileRedirNode():
             return node
         case list() if all(isinstance(x, AST.ArgChar) for x in node):
-            return [transform_node(n) for n in node]
+            return [visit_node(n) for n in node]
         case _:
             print(f"Leaving node unchanged: {type(node)} {node}", sys.stderr)
             return node
 
 def transform_ast(ast):
-    return [transform_node(node) for node, _, _, _ in ast]
+    return [visit_node(node) for node, _, _, _ in ast]
+
+def ast_statistics(ast):
+    # print statistics on Expansions, stateful expansions, commands, etc
+    pass
+
 
 def ast_to_code(ast):
     return "\n".join([node.pretty() for node in ast])
