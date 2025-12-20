@@ -2,7 +2,8 @@
 # Calculate mispelled words in an input
 # https://dl.acm.org/doi/10.1145/3532.315102
 
-dict=$SUITE_DIR/inputs/dict.txt
+top=$(git rev-parse --show-toplevel)
+dict="$top/dat/words.txt"
 
 cat $1 |
     sed 's/[^[:print:]]//g' |      # remove non-printing characters
