@@ -218,55 +218,58 @@ def is_pure(node):
     return True
 
 
-def replace_with_stub(node, stubber=None):
+def walk_ast_node(node, visit=None, replace=None):
+    if visit:
+        visit(node)
+    if replace:
+        replaced = replace(node)
+        if replaced is not None:
+            return replaced
 
-    def _replace_fd(fd, stubber):
+    if isinstance(node, list):
+        return [walk_ast_node(n, visit=visit, replace=replace) for n in node]
+    if isinstance(node, tuple):
+        return tuple(walk_ast_node(n, visit=visit, replace=replace) for n in node)
+    if not isinstance(node, AST.AstNode):
+        return node
+
+    def walk_fd(fd):
         if isinstance(fd, tuple) and len(fd) == 2 and fd[0] == "var":
-            return ("var", _replace_argchars(fd[1], stubber))
+            return ("var", walk_ast_node(fd[1], visit=visit, replace=replace))
         return fd
 
-    def _replace_argchars(argchars, stubber):
-        updated = []
-        for ch in argchars:
-            if isinstance(ch, AST.BArgChar):
-                updated.append(AST.BArgChar(
-                    node=replace_with_stub(ch.node, stubber),
-                    **{k: v for k, v in vars(ch).items() if k != "node"}
-                ))
-            elif isinstance(ch, AST.QArgChar):
-                updated.append(AST.QArgChar(
-                    arg=_replace_argchars(ch.arg, stubber),
-                    **{k: v for k, v in vars(ch).items() if k != "arg"}
-                ))
-            elif isinstance(ch, AST.AArgChar):
-                updated.append(AST.AArgChar(
-                    arg=_replace_argchars(ch.arg, stubber),
-                    **{k: v for k, v in vars(ch).items() if k != "arg"}
-                ))
-            elif isinstance(ch, AST.VArgChar):
-                updated.append(AST.VArgChar(
-                    arg=_replace_argchars(ch.arg, stubber),
-                    **{k: v for k, v in vars(ch).items() if k != "arg"}
-                ))
-            else:
-                updated.append(ch)
-        return updated
+    if isinstance(node, AST.BArgChar):
+        return AST.BArgChar(
+            node=walk_ast_node(node.node, visit=visit, replace=replace),
+            **{k: v for k, v in vars(node).items() if k != "node"}
+        )
+    if isinstance(node, AST.QArgChar):
+        return AST.QArgChar(
+            arg=walk_ast_node(node.arg, visit=visit, replace=replace),
+            **{k: v for k, v in vars(node).items() if k != "arg"}
+        )
+    if isinstance(node, AST.AArgChar):
+        return AST.AArgChar(
+            arg=walk_ast_node(node.arg, visit=visit, replace=replace),
+            **{k: v for k, v in vars(node).items() if k != "arg"}
+        )
+    if isinstance(node, AST.VArgChar):
+        return AST.VArgChar(
+            arg=walk_ast_node(node.arg, visit=visit, replace=replace),
+            **{k: v for k, v in vars(node).items() if k != "arg"}
+        )
+    if isinstance(node, (AST.CArgChar, AST.EArgChar, AST.TArgChar)):
+        return node
 
-    if stubber and isinstance(node, AST.Command) and is_pure(node):
-        return stubber(node)
-    if isinstance(node, list):
-        if node and all(isinstance(x, AST.ArgChar) for x in node):
-            return _replace_argchars(node, stubber)
-        return [replace_with_stub(n, stubber) for n in node]
     if isinstance(node, AST.PipeNode):
         return AST.PipeNode(
-            items=[replace_with_stub(n, stubber) for n in node.items],
+            items=[walk_ast_node(n, visit=visit, replace=replace) for n in node.items],
             **{k: v for k, v in vars(node).items() if k != "items"}
         )
     if isinstance(node, AST.CommandNode):
-        assignments = [replace_with_stub(ass, stubber) for ass in node.assignments]
-        arguments = [_replace_argchars(arg, stubber) for arg in node.arguments]
-        redirs = [replace_with_stub(r, stubber) for r in node.redir_list]
+        assignments = [walk_ast_node(ass, visit=visit, replace=replace) for ass in node.assignments]
+        arguments = [walk_ast_node(arg, visit=visit, replace=replace) for arg in node.arguments]
+        redirs = [walk_ast_node(r, visit=visit, replace=replace) for r in node.redir_list]
         return AST.CommandNode(
             arguments=arguments,
             assignments=assignments,
@@ -275,83 +278,63 @@ def replace_with_stub(node, stubber=None):
         )
     if isinstance(node, AST.AssignNode):
         return AST.AssignNode(
-            val=_replace_argchars(node.val, stubber),
+            val=walk_ast_node(node.val, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k != "val"}
-        )
-    if isinstance(node, AST.BArgChar):
-        return AST.BArgChar(
-            node=replace_with_stub(node.node, stubber),
-            **{k: v for k, v in vars(node).items() if k != "node"}
-        )
-    if isinstance(node, AST.QArgChar):
-        return AST.QArgChar(
-            arg=_replace_argchars(node.arg, stubber),
-            **{k: v for k, v in vars(node).items() if k != "arg"}
-        )
-    if isinstance(node, AST.AArgChar):
-        return AST.AArgChar(
-            arg=_replace_argchars(node.arg, stubber),
-            **{k: v for k, v in vars(node).items() if k != "arg"}
-        )
-    if isinstance(node, AST.VArgChar):
-        return AST.VArgChar(
-            arg=_replace_argchars(node.arg, stubber),
-            **{k: v for k, v in vars(node).items() if k != "arg"}
         )
     if isinstance(node, AST.DefunNode):
         return AST.DefunNode(
-            body=replace_with_stub(node.body, stubber),
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k != "body"}
         )
     if isinstance(node, AST.ForNode):
         return AST.ForNode(
-            body=replace_with_stub(node.body, stubber),
-            argument=[_replace_argchars(n, stubber) for n in node.argument],
-            variable=_replace_argchars(node.variable, stubber),
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
+            argument=[walk_ast_node(n, visit=visit, replace=replace) for n in node.argument],
+            variable=walk_ast_node(node.variable, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("body", "argument", "variable")}
         )
     if isinstance(node, AST.ArithForNode):
         return AST.ArithForNode(
-            init=[_replace_argchars(n, stubber) for n in node.init],
-            cond=[_replace_argchars(n, stubber) for n in node.cond],
-            step=[_replace_argchars(n, stubber) for n in node.step],
-            body=replace_with_stub(node.body, stubber),
+            init=[walk_ast_node(n, visit=visit, replace=replace) for n in node.init],
+            cond=[walk_ast_node(n, visit=visit, replace=replace) for n in node.cond],
+            step=[walk_ast_node(n, visit=visit, replace=replace) for n in node.step],
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("init", "cond", "step", "body")}
         )
     if isinstance(node, AST.WhileNode):
         return AST.WhileNode(
-            test=replace_with_stub(node.test, stubber),
-            body=replace_with_stub(node.body, stubber),
+            test=walk_ast_node(node.test, visit=visit, replace=replace),
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("test", "body")}
         )
     if isinstance(node, AST.SemiNode):
         return AST.SemiNode(
-            left_operand=replace_with_stub(node.left_operand, stubber),
-            right_operand=replace_with_stub(node.right_operand, stubber),
+            left_operand=walk_ast_node(node.left_operand, visit=visit, replace=replace),
+            right_operand=walk_ast_node(node.right_operand, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")}
         )
     if isinstance(node, AST.AndNode):
         return AST.AndNode(
-            left_operand=replace_with_stub(node.left_operand, stubber),
-            right_operand=replace_with_stub(node.right_operand, stubber),
+            left_operand=walk_ast_node(node.left_operand, visit=visit, replace=replace),
+            right_operand=walk_ast_node(node.right_operand, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")}
         )
     if isinstance(node, AST.OrNode):
         return AST.OrNode(
-            left_operand=replace_with_stub(node.left_operand, stubber),
-            right_operand=replace_with_stub(node.right_operand, stubber),
+            left_operand=walk_ast_node(node.left_operand, visit=visit, replace=replace),
+            right_operand=walk_ast_node(node.right_operand, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")}
         )
     if isinstance(node, AST.NotNode):
         return AST.NotNode(
-            body=replace_with_stub(node.body, stubber),
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k != "body"}
         )
     if isinstance(node, AST.IfNode):
         return AST.IfNode(
-            cond=replace_with_stub(node.cond, stubber),
-            then_b=replace_with_stub(node.then_b, stubber),
-            else_b=replace_with_stub(node.else_b, stubber) if node.else_b else None,
+            cond=walk_ast_node(node.cond, visit=visit, replace=replace),
+            then_b=walk_ast_node(node.then_b, visit=visit, replace=replace),
+            else_b=walk_ast_node(node.else_b, visit=visit, replace=replace) if node.else_b else None,
             **{k: v for k, v in vars(node).items() if k not in ("cond", "then_b", "else_b")}
         )
     if isinstance(node, AST.CaseNode):
@@ -359,81 +342,81 @@ def replace_with_stub(node, stubber=None):
         for case in node.cases:
             new_case = dict(case)
             if "cpattern" in case:
-                new_case["cpattern"] = [_replace_argchars(p, stubber) for p in case["cpattern"]]
+                new_case["cpattern"] = [walk_ast_node(p, visit=visit, replace=replace) for p in case["cpattern"]]
             if case.get("cbody"):
-                new_case["cbody"] = replace_with_stub(case["cbody"], stubber)
+                new_case["cbody"] = walk_ast_node(case["cbody"], visit=visit, replace=replace)
             updated_cases.append(new_case)
         return AST.CaseNode(
-            argument=_replace_argchars(node.argument, stubber),
+            argument=walk_ast_node(node.argument, visit=visit, replace=replace),
             cases=updated_cases,
             **{k: v for k, v in vars(node).items() if k not in ("argument", "cases")}
         )
     if isinstance(node, AST.SubshellNode):
         return AST.SubshellNode(
-            body=replace_with_stub(node.body, stubber),
-            redir_list=[replace_with_stub(r, stubber) for r in node.redir_list],
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
+            redir_list=[walk_ast_node(r, visit=visit, replace=replace) for r in node.redir_list],
             **{k: v for k, v in vars(node).items() if k not in ("body", "redir_list")}
         )
     if isinstance(node, AST.BackgroundNode):
         return AST.BackgroundNode(
-            node=replace_with_stub(node.node, stubber),
-            redir_list=[replace_with_stub(r, stubber) for r in node.redir_list],
-            after_ampersand=replace_with_stub(node.after_ampersand, stubber) if node.after_ampersand else None,
+            node=walk_ast_node(node.node, visit=visit, replace=replace),
+            redir_list=[walk_ast_node(r, visit=visit, replace=replace) for r in node.redir_list],
+            after_ampersand=walk_ast_node(node.after_ampersand, visit=visit, replace=replace) if node.after_ampersand else None,
             **{k: v for k, v in vars(node).items() if k not in ("node", "redir_list", "after_ampersand")}
         )
     if isinstance(node, AST.RedirNode):
         return AST.RedirNode(
-            node=replace_with_stub(node.node, stubber),
-            redir_list=[replace_with_stub(r, stubber) for r in node.redir_list],
+            node=walk_ast_node(node.node, visit=visit, replace=replace),
+            redir_list=[walk_ast_node(r, visit=visit, replace=replace) for r in node.redir_list],
             **{k: v for k, v in vars(node).items() if k not in ("node", "redir_list")}
         )
     if isinstance(node, AST.FileRedirNode):
         return AST.FileRedirNode(
-            arg=_replace_argchars(node.arg, stubber) if node.arg else None,
+            arg=walk_ast_node(node.arg, visit=visit, replace=replace) if node.arg else None,
             **{k: v for k, v in vars(node).items() if k != "arg"}
         )
     if isinstance(node, AST.DupRedirNode):
         return AST.DupRedirNode(
-            fd=_replace_fd(node.fd, stubber),
-            arg=_replace_fd(node.arg, stubber),
+            fd=walk_fd(node.fd),
+            arg=walk_fd(node.arg),
             **{k: v for k, v in vars(node).items() if k not in ("fd", "arg")}
         )
     if isinstance(node, AST.HeredocRedirNode):
         return AST.HeredocRedirNode(
-            arg=_replace_argchars(node.arg, stubber),
+            arg=walk_ast_node(node.arg, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k != "arg"}
         )
     if isinstance(node, AST.SingleArgRedirNode):
         return AST.SingleArgRedirNode(
-            fd=_replace_fd(node.fd, stubber),
+            fd=walk_fd(node.fd),
             **{k: v for k, v in vars(node).items() if k != "fd"}
         )
     if isinstance(node, AST.ArithNode):
         return AST.ArithNode(
-            body=[_replace_argchars(n, stubber) for n in node.body],
+            body=[walk_ast_node(n, visit=visit, replace=replace) for n in node.body],
             **{k: v for k, v in vars(node).items() if k != "body"}
         )
     if isinstance(node, AST.SelectNode):
         return AST.SelectNode(
-            variable=_replace_argchars(node.variable, stubber),
-            map_list=[_replace_argchars(n, stubber) for n in node.map_list],
-            body=replace_with_stub(node.body, stubber),
+            variable=walk_ast_node(node.variable, visit=visit, replace=replace),
+            map_list=[walk_ast_node(n, visit=visit, replace=replace) for n in node.map_list],
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("variable", "map_list", "body")}
         )
     if isinstance(node, AST.GroupNode):
         return AST.GroupNode(
-            body=replace_with_stub(node.body, stubber),
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k != "body"}
         )
     if isinstance(node, AST.TimeNode):
         return AST.TimeNode(
-            command=replace_with_stub(node.command, stubber),
+            command=walk_ast_node(node.command, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k != "command"}
         )
     if isinstance(node, AST.CoprocNode):
         return AST.CoprocNode(
-            name=_replace_argchars(node.name, stubber),
-            body=replace_with_stub(node.body, stubber),
+            name=walk_ast_node(node.name, visit=visit, replace=replace),
+            body=walk_ast_node(node.body, visit=visit, replace=replace),
             **{k: v for k, v in vars(node).items() if k not in ("name", "body")}
         )
     return node
@@ -460,104 +443,25 @@ def make_pure_replacer(stub_dir="/tmp"):
             redir_list=[],
         )
 
-    return lambda node: replace_with_stub(node, stubber)
+    def replace(node):
+        if isinstance(node, AST.Command) and is_pure(node):
+            return stubber(node)
+        return None
+
+    return replace
 
 def replace_pure_subtrees(ast, stub_dir="/tmp"):
-    return walk_ast(ast, transform=make_pure_replacer(stub_dir))
-
-def flatten_ast(node):
-    if isinstance(node, AST.PipeNode):
-        return list(node.items)
-    if isinstance(node, AST.CommandNode):
-        return list(node.assignments) + list(node.arguments) + list(node.redir_list)
-    if isinstance(node, AST.AssignNode):
-        return list(node.val)
-    if isinstance(node, AST.BArgChar):
-        return [node.node]
-    if isinstance(node, AST.QArgChar):
-        return list(node.arg)
-    if isinstance(node, AST.AArgChar):
-        return list(node.arg)
-    if isinstance(node, AST.VArgChar):
-        return list(node.arg)
-    if isinstance(node, AST.DefunNode):
-        return [node.body]
-    if isinstance(node, AST.ForNode):
-        return list(node.argument) + [node.body]
-    if isinstance(node, AST.ArithForNode):
-        return list(node.init) + list(node.cond) + list(node.step) + [node.body]
-    if isinstance(node, AST.WhileNode):
-        return [node.test, node.body]
-    if isinstance(node, AST.SemiNode):
-        return [node.left_operand, node.right_operand]
-    if isinstance(node, AST.AndNode):
-        return [node.left_operand, node.right_operand]
-    if isinstance(node, AST.OrNode):
-        return [node.left_operand, node.right_operand]
-    if isinstance(node, AST.NotNode):
-        return [node.body]
-    if isinstance(node, AST.IfNode):
-        children = [node.cond, node.then_b]
-        if node.else_b:
-            children.append(node.else_b)
-        return children
-    if isinstance(node, AST.CaseNode):
-        children = [node.argument]
-        for case in node.cases:
-            children.extend(case.get("cpattern", []))
-            body = case.get("cbody")
-            if body:
-                children.append(body)
-        return children
-    if isinstance(node, AST.SubshellNode):
-        return [node.body] + list(node.redir_list)
-    if isinstance(node, AST.BackgroundNode):
-        children = [node.node] + list(node.redir_list)
-        if node.after_ampersand:
-            children.append(node.after_ampersand)
-        return children
-    if isinstance(node, AST.RedirNode):
-        return [node.node] + list(node.redir_list)
-    if isinstance(node, AST.FileRedirNode):
-        return [node.arg] if node.arg else []
-    if isinstance(node, AST.DupRedirNode):
-        return [node.fd, node.arg]
-    if isinstance(node, AST.HeredocRedirNode):
-        return [node.arg]
-    if isinstance(node, AST.SingleArgRedirNode):
-        return [node.fd]
-    if isinstance(node, AST.ArithNode):
-        return list(node.body)
-    if isinstance(node, AST.SelectNode):
-        return [node.variable] + list(node.map_list) + [node.body]
-    if isinstance(node, AST.GroupNode):
-        return [node.body]
-    if isinstance(node, AST.TimeNode):
-        return [node.command]
-    if isinstance(node, AST.CoprocNode):
-        return [node.name, node.body]
-    return []
+    return walk_ast(ast, replace=make_pure_replacer(stub_dir))
 
 def get_pure_subtrees(ast):
     subtrees = []
-    def walk(n):
-        if isinstance(n, list):
-            for item in n:
-                walk(item)
-            return
-        if isinstance(n, tuple):
-            for item in n:
-                walk(item)
-            return
-        if isinstance(n, AST.AstNode) and is_pure(n)\
-            and not isinstance(n, AST.ArgChar): # Small hack to avoid many argchar-only subtrees
+    def replace(n):
+        if isinstance(n, AST.AstNode) and is_pure(n) and not isinstance(n, AST.ArgChar):
             subtrees.append(n)
-            return
-        for child in flatten_ast(n):
-            walk(child)
+            return n
+        return None
 
-    for node, _, _, _ in ast:
-        walk(node)
+    walk_ast(ast, replace=replace)
     return subtrees
 
 
@@ -586,71 +490,10 @@ def parse_shell_to_asts(input_script_path : str):
 @count_features
 @identity
 def walk_node(node):
-    match node:
-        case AST.PipeNode():
-            return AST.PipeNode(
-            items=[walk_node(node) for node in node.items],
-            **{k: v for k, v in vars(node).items() if k != "items"}
-            )
-        case AST.CommandNode():
-            if not node.arguments and not node.assignments:
-                return node
-            assignments = [walk_node(ass) for ass in node.assignments]
-            arguments = [walk_node(arg) for arg in node.arguments]
+    return node
 
-            return AST.CommandNode(
-                    arguments=arguments,
-                    assignments=assignments,
-                    **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments")})
-        case AST.AssignNode():
-            val = [walk_node(v) for v in node.val]
-            return AST.AssignNode(
-                    val=val,
-                    **{k: v for k, v in vars(node).items() if k != "val"})
-        case AST.BArgChar():
-            return AST.BArgChar(
-                    node=walk_node(node.node),
-                    **{k: v for k, v in vars(node).items() if k != "node"})
-        case AST.QArgChar():
-            return AST.QArgChar(
-                    arg=[walk_node(n) for n in node.arg],
-                    **{k: v for k, v in vars(node).items() if k != "arg"})
-        case AST.DefunNode():
-            return AST.DefunNode(
-                body=walk_node(node.body),
-                **{k: v for k, v in vars(node).items() if k != "body"}
-            )
-        case AST.ForNode():
-            return AST.ForNode(
-                body=walk_node(node.body),
-                argument=[walk_node(n) for n in node.argument],
-                **{k: v for k, v in vars(node).items() if k not in ("body", "argument")}
-            )
-        case AST.WhileNode():
-            return AST.WhileNode(
-                    test=walk_node(node.test),
-                    body=walk_node(node.body),
-                    **{k: v for k, v in vars(node).items() if k not in ("test", "body")})
-        case AST.SemiNode():
-            return AST.SemiNode(
-                    left_operand=walk_node(node.left_operand),
-                    right_operand=walk_node(node.right_operand),
-                    **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")})
-        case AST.RedirNode():
-            return AST.RedirNode(
-                    node=walk_node(node.node),
-                    redir_list=[walk_node(n) for n in node.redir_list],
-                    **{k: v for k, v in vars(node).items() if k not in ("node", "redir_list")})
-        case AST.FileRedirNode():
-            return node
-        case list() if all(isinstance(x, AST.ArgChar) for x in node):
-            return [walk_node(n) for n in node]
-        case _:
-            # print(f"Leaving node unchanged: {type(node)} {node}", sys.stderr)
-            return node
-
-def walk_ast(ast, transform=walk_node):
-    return [transform(node) for node, _, _, _ in ast]
+def walk_ast(ast, visit=None, replace=None):
+    return [walk_ast_node(node, visit=visit, replace=replace) for node, _, _, _ in ast]
 
 def ast_to_code(ast):
     return "\n".join([node.pretty() for node in ast])
@@ -666,7 +509,7 @@ def main():
     )
 
     original_ast = parse_shell_to_asts(arg_parser.parse_args().input_script)
-    original_code = ast_to_code(walk_ast(original_ast, transform=lambda node: node))
+    original_code = ast_to_code(walk_ast(original_ast, visit=walk_node))
     print(original_code)
 
     for feature in walk_node.features:
@@ -676,7 +519,7 @@ def main():
     for subtree in pure_subtrees:
         print("-", subtree.pretty(), file=sys.stderr)
 
-    stubbed_ast = walk_ast(original_ast, transform=make_pure_replacer("/tmp"))
+    stubbed_ast = walk_ast(original_ast, replace=make_pure_replacer("/tmp"))
     print(ast_to_code(stubbed_ast))
 
 if __name__ == "__main__":
