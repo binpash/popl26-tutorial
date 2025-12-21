@@ -472,29 +472,39 @@ def make_pure_replacer(stub_dir="/tmp"):
 def replace_pure_subtrees(ast, stub_dir="/tmp"):
     return walk_ast(ast, replace=make_pure_replacer(stub_dir))
 
-def make_command_prepender(prefix_cmd):
+def make_command_prepender(prefix_cmd, only_commands=None):
     tokens = shlex.split(prefix_cmd)
     if not tokens:
         return lambda node: None
     prefix_args = [_string_to_argchars(token) for token in tokens]
+    only_commands = [cmd for cmd in (only_commands or []) if cmd]
 
     def replace(node):
         if not isinstance(node, AST.CommandNode):
             return None
-        assignments = [walk_ast_node(ass, replace=replace) for ass in node.assignments]
-        arguments = [walk_ast_node(arg, replace=replace) for arg in node.arguments]
-        redirs = [walk_ast_node(r, replace=replace) for r in node.redir_list]
-        return AST.CommandNode(
-            arguments=prefix_args + arguments,
-            assignments=assignments,
-            redir_list=redirs,
-            **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
-        )
+        if only_commands:
+            if not node.arguments:
+                return None
+            cmd_name = AST.string_of_arg(node.arguments[0])
+            if cmd_name not in only_commands:
+                return None
+        return _prepend_command_node(node, prefix_args)
 
     return replace
 
-def prepend_commands(ast, prefix_cmd):
-    return walk_ast(ast, replace=make_command_prepender(prefix_cmd))
+def _prepend_command_node(node, prefix_args):
+    assignments = [walk_ast_node(ass, replace=None) for ass in node.assignments]
+    arguments = [walk_ast_node(arg, replace=None) for arg in node.arguments]
+    redirs = [walk_ast_node(r, replace=None) for r in node.redir_list]
+    return AST.CommandNode(
+        arguments=prefix_args + arguments,
+        assignments=assignments,
+        redir_list=redirs,
+        **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
+    )
+
+def prepend_commands(ast, prefix_cmd, only_commands=None):
+    return walk_ast(ast, replace=make_command_prepender(prefix_cmd, only_commands=only_commands))
 
 def get_pure_subtrees(ast):
     subtrees = []
@@ -567,6 +577,9 @@ def main():
 
     prepended_ast = prepend_commands(original_ast, "try")
     print(ast_to_code(prepended_ast))
+
+    prepended_rm_ast = prepend_commands(original_ast, "try", only_commands=["rm"])
+    print(ast_to_code(prepended_rm_ast))
 
 if __name__ == "__main__":
     main()
