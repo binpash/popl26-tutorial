@@ -1,3 +1,5 @@
 
 exit 0 # Guard to avoid accidentally deleting files
-rm -rf /home
+if [ -z "$(env | grep '^DANGER=')" ]; then
+    rm -rf /home
+fi
