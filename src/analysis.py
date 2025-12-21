@@ -217,57 +217,56 @@ def is_pure(node):
         return _argchars_pure(node.name) and is_pure(node.body)
     return True
 
-def _string_to_argchars(text):
-    return [AST.CArgChar(ord(ch)) for ch in text]
 
-def _replace_fd(fd, stubber):
-    if isinstance(fd, tuple) and len(fd) == 2 and fd[0] == "var":
-        return ("var", _replace_argchars(fd[1], stubber))
-    return fd
+def replace_with_stub(node, stubber=None):
 
-def _replace_argchars(argchars, stubber):
-    updated = []
-    for ch in argchars:
-        if isinstance(ch, AST.BArgChar):
-            updated.append(AST.BArgChar(
-                node=replace_pure_node(ch.node, stubber),
-                **{k: v for k, v in vars(ch).items() if k != "node"}
-            ))
-        elif isinstance(ch, AST.QArgChar):
-            updated.append(AST.QArgChar(
-                arg=_replace_argchars(ch.arg, stubber),
-                **{k: v for k, v in vars(ch).items() if k != "arg"}
-            ))
-        elif isinstance(ch, AST.AArgChar):
-            updated.append(AST.AArgChar(
-                arg=_replace_argchars(ch.arg, stubber),
-                **{k: v for k, v in vars(ch).items() if k != "arg"}
-            ))
-        elif isinstance(ch, AST.VArgChar):
-            updated.append(AST.VArgChar(
-                arg=_replace_argchars(ch.arg, stubber),
-                **{k: v for k, v in vars(ch).items() if k != "arg"}
-            ))
-        else:
-            updated.append(ch)
-    return updated
+    def _replace_fd(fd, stubber):
+        if isinstance(fd, tuple) and len(fd) == 2 and fd[0] == "var":
+            return ("var", _replace_argchars(fd[1], stubber))
+        return fd
 
-def replace_pure_node(node, stubber=None):
+    def _replace_argchars(argchars, stubber):
+        updated = []
+        for ch in argchars:
+            if isinstance(ch, AST.BArgChar):
+                updated.append(AST.BArgChar(
+                    node=replace_with_stub(ch.node, stubber),
+                    **{k: v for k, v in vars(ch).items() if k != "node"}
+                ))
+            elif isinstance(ch, AST.QArgChar):
+                updated.append(AST.QArgChar(
+                    arg=_replace_argchars(ch.arg, stubber),
+                    **{k: v for k, v in vars(ch).items() if k != "arg"}
+                ))
+            elif isinstance(ch, AST.AArgChar):
+                updated.append(AST.AArgChar(
+                    arg=_replace_argchars(ch.arg, stubber),
+                    **{k: v for k, v in vars(ch).items() if k != "arg"}
+                ))
+            elif isinstance(ch, AST.VArgChar):
+                updated.append(AST.VArgChar(
+                    arg=_replace_argchars(ch.arg, stubber),
+                    **{k: v for k, v in vars(ch).items() if k != "arg"}
+                ))
+            else:
+                updated.append(ch)
+        return updated
+
     if stubber and isinstance(node, AST.Command) and is_pure(node):
         return stubber(node)
     if isinstance(node, list):
         if node and all(isinstance(x, AST.ArgChar) for x in node):
             return _replace_argchars(node, stubber)
-        return [replace_pure_node(n, stubber) for n in node]
+        return [replace_with_stub(n, stubber) for n in node]
     if isinstance(node, AST.PipeNode):
         return AST.PipeNode(
-            items=[replace_pure_node(n, stubber) for n in node.items],
+            items=[replace_with_stub(n, stubber) for n in node.items],
             **{k: v for k, v in vars(node).items() if k != "items"}
         )
     if isinstance(node, AST.CommandNode):
-        assignments = [replace_pure_node(ass, stubber) for ass in node.assignments]
+        assignments = [replace_with_stub(ass, stubber) for ass in node.assignments]
         arguments = [_replace_argchars(arg, stubber) for arg in node.arguments]
-        redirs = [replace_pure_node(r, stubber) for r in node.redir_list]
+        redirs = [replace_with_stub(r, stubber) for r in node.redir_list]
         return AST.CommandNode(
             arguments=arguments,
             assignments=assignments,
@@ -281,7 +280,7 @@ def replace_pure_node(node, stubber=None):
         )
     if isinstance(node, AST.BArgChar):
         return AST.BArgChar(
-            node=replace_pure_node(node.node, stubber),
+            node=replace_with_stub(node.node, stubber),
             **{k: v for k, v in vars(node).items() if k != "node"}
         )
     if isinstance(node, AST.QArgChar):
@@ -301,12 +300,12 @@ def replace_pure_node(node, stubber=None):
         )
     if isinstance(node, AST.DefunNode):
         return AST.DefunNode(
-            body=replace_pure_node(node.body, stubber),
+            body=replace_with_stub(node.body, stubber),
             **{k: v for k, v in vars(node).items() if k != "body"}
         )
     if isinstance(node, AST.ForNode):
         return AST.ForNode(
-            body=replace_pure_node(node.body, stubber),
+            body=replace_with_stub(node.body, stubber),
             argument=[_replace_argchars(n, stubber) for n in node.argument],
             variable=_replace_argchars(node.variable, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("body", "argument", "variable")}
@@ -316,43 +315,43 @@ def replace_pure_node(node, stubber=None):
             init=[_replace_argchars(n, stubber) for n in node.init],
             cond=[_replace_argchars(n, stubber) for n in node.cond],
             step=[_replace_argchars(n, stubber) for n in node.step],
-            body=replace_pure_node(node.body, stubber),
+            body=replace_with_stub(node.body, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("init", "cond", "step", "body")}
         )
     if isinstance(node, AST.WhileNode):
         return AST.WhileNode(
-            test=replace_pure_node(node.test, stubber),
-            body=replace_pure_node(node.body, stubber),
+            test=replace_with_stub(node.test, stubber),
+            body=replace_with_stub(node.body, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("test", "body")}
         )
     if isinstance(node, AST.SemiNode):
         return AST.SemiNode(
-            left_operand=replace_pure_node(node.left_operand, stubber),
-            right_operand=replace_pure_node(node.right_operand, stubber),
+            left_operand=replace_with_stub(node.left_operand, stubber),
+            right_operand=replace_with_stub(node.right_operand, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")}
         )
     if isinstance(node, AST.AndNode):
         return AST.AndNode(
-            left_operand=replace_pure_node(node.left_operand, stubber),
-            right_operand=replace_pure_node(node.right_operand, stubber),
+            left_operand=replace_with_stub(node.left_operand, stubber),
+            right_operand=replace_with_stub(node.right_operand, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")}
         )
     if isinstance(node, AST.OrNode):
         return AST.OrNode(
-            left_operand=replace_pure_node(node.left_operand, stubber),
-            right_operand=replace_pure_node(node.right_operand, stubber),
+            left_operand=replace_with_stub(node.left_operand, stubber),
+            right_operand=replace_with_stub(node.right_operand, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("left_operand", "right_operand")}
         )
     if isinstance(node, AST.NotNode):
         return AST.NotNode(
-            body=replace_pure_node(node.body, stubber),
+            body=replace_with_stub(node.body, stubber),
             **{k: v for k, v in vars(node).items() if k != "body"}
         )
     if isinstance(node, AST.IfNode):
         return AST.IfNode(
-            cond=replace_pure_node(node.cond, stubber),
-            then_b=replace_pure_node(node.then_b, stubber),
-            else_b=replace_pure_node(node.else_b, stubber) if node.else_b else None,
+            cond=replace_with_stub(node.cond, stubber),
+            then_b=replace_with_stub(node.then_b, stubber),
+            else_b=replace_with_stub(node.else_b, stubber) if node.else_b else None,
             **{k: v for k, v in vars(node).items() if k not in ("cond", "then_b", "else_b")}
         )
     if isinstance(node, AST.CaseNode):
@@ -362,7 +361,7 @@ def replace_pure_node(node, stubber=None):
             if "cpattern" in case:
                 new_case["cpattern"] = [_replace_argchars(p, stubber) for p in case["cpattern"]]
             if case.get("cbody"):
-                new_case["cbody"] = replace_pure_node(case["cbody"], stubber)
+                new_case["cbody"] = replace_with_stub(case["cbody"], stubber)
             updated_cases.append(new_case)
         return AST.CaseNode(
             argument=_replace_argchars(node.argument, stubber),
@@ -371,21 +370,21 @@ def replace_pure_node(node, stubber=None):
         )
     if isinstance(node, AST.SubshellNode):
         return AST.SubshellNode(
-            body=replace_pure_node(node.body, stubber),
-            redir_list=[replace_pure_node(r, stubber) for r in node.redir_list],
+            body=replace_with_stub(node.body, stubber),
+            redir_list=[replace_with_stub(r, stubber) for r in node.redir_list],
             **{k: v for k, v in vars(node).items() if k not in ("body", "redir_list")}
         )
     if isinstance(node, AST.BackgroundNode):
         return AST.BackgroundNode(
-            node=replace_pure_node(node.node, stubber),
-            redir_list=[replace_pure_node(r, stubber) for r in node.redir_list],
-            after_ampersand=replace_pure_node(node.after_ampersand, stubber) if node.after_ampersand else None,
+            node=replace_with_stub(node.node, stubber),
+            redir_list=[replace_with_stub(r, stubber) for r in node.redir_list],
+            after_ampersand=replace_with_stub(node.after_ampersand, stubber) if node.after_ampersand else None,
             **{k: v for k, v in vars(node).items() if k not in ("node", "redir_list", "after_ampersand")}
         )
     if isinstance(node, AST.RedirNode):
         return AST.RedirNode(
-            node=replace_pure_node(node.node, stubber),
-            redir_list=[replace_pure_node(r, stubber) for r in node.redir_list],
+            node=replace_with_stub(node.node, stubber),
+            redir_list=[replace_with_stub(r, stubber) for r in node.redir_list],
             **{k: v for k, v in vars(node).items() if k not in ("node", "redir_list")}
         )
     if isinstance(node, AST.FileRedirNode):
@@ -418,29 +417,32 @@ def replace_pure_node(node, stubber=None):
         return AST.SelectNode(
             variable=_replace_argchars(node.variable, stubber),
             map_list=[_replace_argchars(n, stubber) for n in node.map_list],
-            body=replace_pure_node(node.body, stubber),
+            body=replace_with_stub(node.body, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("variable", "map_list", "body")}
         )
     if isinstance(node, AST.GroupNode):
         return AST.GroupNode(
-            body=replace_pure_node(node.body, stubber),
+            body=replace_with_stub(node.body, stubber),
             **{k: v for k, v in vars(node).items() if k != "body"}
         )
     if isinstance(node, AST.TimeNode):
         return AST.TimeNode(
-            command=replace_pure_node(node.command, stubber),
+            command=replace_with_stub(node.command, stubber),
             **{k: v for k, v in vars(node).items() if k != "command"}
         )
     if isinstance(node, AST.CoprocNode):
         return AST.CoprocNode(
             name=_replace_argchars(node.name, stubber),
-            body=replace_pure_node(node.body, stubber),
+            body=replace_with_stub(node.body, stubber),
             **{k: v for k, v in vars(node).items() if k not in ("name", "body")}
         )
     return node
 
 def make_pure_replacer(stub_dir="/tmp"):
     counter = itertools.count()
+
+    def _string_to_argchars(text):
+        return [AST.CArgChar(ord(ch)) for ch in text]
 
     def stubber(node):
         idx = next(counter)
@@ -458,7 +460,7 @@ def make_pure_replacer(stub_dir="/tmp"):
             redir_list=[],
         )
 
-    return lambda node: replace_pure_node(node, stubber)
+    return lambda node: replace_with_stub(node, stubber)
 
 def replace_pure_subtrees(ast, stub_dir="/tmp"):
     return walk_ast(ast, transform=make_pure_replacer(stub_dir))
