@@ -396,7 +396,7 @@ def walk_node(node):
         case list() if all(isinstance(x, AST.ArgChar) for x in node):
             return [walk_node(n) for n in node]
         case _:
-            print(f"Leaving node unchanged: {type(node)} {node}", sys.stderr)
+            # print(f"Leaving node unchanged: {type(node)} {node}", sys.stderr)
             return node
 
 def walk_ast(ast):
