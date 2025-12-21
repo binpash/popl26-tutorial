@@ -24,10 +24,9 @@ RUN apt-get update \
 
 COPY requirements.txt /app/requirements.txt
 RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:/app/bin:$PATH"
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app
-RUN chmod +x /app/sh/vps-audit.sh
 
 CMD ["bash"]

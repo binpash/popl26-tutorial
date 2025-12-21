@@ -9,6 +9,7 @@ Docker
 - Run with current directory mounted: `docker run --rm -it --privileged -v "$PWD":/app popl26-tutorial`
 
 Note: `try` requires `unshare` and mount privileges; `--privileged` enables those in Docker.
+Note: The image PATH includes `/opt/venv/bin` and `./bin`. Local development shoud also add these to `PATH`.
 
 Docker (GHCR)
 - Pull: `docker pull ghcr.io/binpash/popl26-tutorial:latest`
