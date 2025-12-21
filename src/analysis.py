@@ -218,6 +218,8 @@ def is_pure(node):
         return _argchars_pure(node.name) and is_pure(node.body)
     return True
 
+def _string_to_argchars(text):
+    return [AST.CArgChar(ord(ch)) for ch in text]
 
 def walk_ast_node(node, visit=None, replace=None):
     if visit:
@@ -423,22 +425,40 @@ def walk_ast_node(node, visit=None, replace=None):
 def make_pure_replacer(stub_dir="/tmp"):
     counter = itertools.count()
 
-    def _string_to_argchars(text):
-        return [AST.CArgChar(ord(ch)) for ch in text]
-
     def stubber(node):
         idx = next(counter)
         stub_path = os.path.join(stub_dir, f"stub_{idx}")
         with open(stub_path, "w", encoding="utf-8") as handle:
+            prologue = (
+                "__saved_vars=$(set)\n"
+                "__saved_aliases=$(alias)\n"
+            )
+            epilogue = (
+                "unalias -a 2>/dev/null\n"
+                "eval \"$__saved_aliases\"\n"
+                "while IFS= read -r __line; do\n"
+                "  case \"$__line\" in\n"
+                "    *=*) eval \"$__line\" ;;\n"
+                "  esac\n"
+                "done <<'__CODEX_VARS__'\n"
+                "${__saved_vars}\n"
+                "__CODEX_VARS__\n"
+                "unset __saved_vars __saved_aliases __line\n"
+            )
             text = node.pretty()
             if text and not text.endswith("\n"):
                 text += "\n"
+            handle.write(prologue)
             handle.write(text)
+            handle.write(epilogue)
         line_number = getattr(node, "line_number", -1)
         return AST.CommandNode(
             line_number=line_number,
             assignments=[],
-            arguments=[_string_to_argchars(stub_path)],
+            arguments=[
+                _string_to_argchars("source"),
+                _string_to_argchars(stub_path),
+            ],
             redir_list=[],
         )
 
