@@ -439,7 +439,7 @@ def replace_pure_node(node, stubber=None):
         )
     return node
 
-def replace_pure_subtrees(ast, stub_dir="/tmp"):
+def make_pure_replacer(stub_dir="/tmp"):
     counter = itertools.count()
 
     def stubber(node):
@@ -458,7 +458,10 @@ def replace_pure_subtrees(ast, stub_dir="/tmp"):
             redir_list=[],
         )
 
-    return [replace_pure_node(node, stubber) for node, _, _, _ in ast]
+    return lambda node: replace_pure_node(node, stubber)
+
+def replace_pure_subtrees(ast, stub_dir="/tmp"):
+    return walk_ast(ast, transform=make_pure_replacer(stub_dir))
 
 def flatten_ast(node):
     if isinstance(node, AST.PipeNode):
@@ -644,8 +647,8 @@ def walk_node(node):
             # print(f"Leaving node unchanged: {type(node)} {node}", sys.stderr)
             return node
 
-def walk_ast(ast):
-    return [walk_node(node) for node, _, _, _ in ast]
+def walk_ast(ast, transform=walk_node):
+    return [transform(node) for node, _, _, _ in ast]
 
 def ast_to_code(ast):
     return "\n".join([node.pretty() for node in ast])
@@ -661,15 +664,18 @@ def main():
     )
 
     original_ast = parse_shell_to_asts(arg_parser.parse_args().input_script)
-    walk_ast(original_ast)
-    stubbed_ast = replace_pure_subtrees(original_ast)
-    print(ast_to_code(stubbed_ast))
+    original_code = ast_to_code(walk_ast(original_ast, transform=lambda node: node))
+    print(original_code)
+
     for feature in walk_node.features:
         print(f"{feature}: {walk_node.feature_counts[feature]}", file=sys.stderr)
     pure_subtrees = get_pure_subtrees(original_ast)
     print(f"Pure subtrees:", file=sys.stderr)
     for subtree in pure_subtrees:
         print("-", subtree.pretty(), file=sys.stderr)
+
+    stubbed_ast = walk_ast(original_ast, transform=make_pure_replacer("/tmp"))
+    print(ast_to_code(stubbed_ast))
 
 if __name__ == "__main__":
     main()
