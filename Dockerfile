@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM ubuntu:latest
 
 WORKDIR /app
 
@@ -11,6 +11,8 @@ RUN apt-get update \
         net-tools \
         procps \
         util-linux \
+        attr \
+        mergerfs \
         python3 \
         python3-pip \
         python3-venv \
