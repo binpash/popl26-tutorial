@@ -7,6 +7,7 @@ import sys
 import functools
 import itertools
 import os
+import shlex
 
 def identity(func):
     @functools.wraps(func)
@@ -451,6 +452,30 @@ def make_pure_replacer(stub_dir="/tmp"):
 def replace_pure_subtrees(ast, stub_dir="/tmp"):
     return walk_ast(ast, replace=make_pure_replacer(stub_dir))
 
+def make_command_prepender(prefix_cmd):
+    tokens = shlex.split(prefix_cmd)
+    if not tokens:
+        return lambda node: None
+    prefix_args = [_string_to_argchars(token) for token in tokens]
+
+    def replace(node):
+        if not isinstance(node, AST.CommandNode):
+            return None
+        assignments = [walk_ast_node(ass, replace=replace) for ass in node.assignments]
+        arguments = [walk_ast_node(arg, replace=replace) for arg in node.arguments]
+        redirs = [walk_ast_node(r, replace=replace) for r in node.redir_list]
+        return AST.CommandNode(
+            arguments=prefix_args + arguments,
+            assignments=assignments,
+            redir_list=redirs,
+            **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
+        )
+
+    return replace
+
+def prepend_commands(ast, prefix_cmd):
+    return walk_ast(ast, replace=make_command_prepender(prefix_cmd))
+
 def get_pure_subtrees(ast):
     subtrees = []
     def replace(n):
@@ -519,6 +544,9 @@ def main():
 
     stubbed_ast = walk_ast(original_ast, replace=make_pure_replacer("/tmp"))
     print(ast_to_code(stubbed_ast))
+
+    prepended_ast = prepend_commands(original_ast, "try")
+    print(ast_to_code(prepended_ast))
 
 if __name__ == "__main__":
     main()
