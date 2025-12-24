@@ -1,225 +1,50 @@
-from typing import runtime_checkable
 import libdash
 import shasta.ast_node as AST
 from shasta.json_to_ast import to_ast_node
 import argparse
 import sys
-import functools
 import itertools
 import os
 import shlex
 
-def identity(func):
-    @functools.wraps(func)
-    def wrapper(node):
-        return func(node)
-    return wrapper
-
-def count_features(func):
-    features = [
-        "background",
-        "subshell",
-        "home_tilde",
-        "$((arithmetic))",
-        "eval",
-        "alias",
-        "while",
-        "for",
-        "case",
-        "if",
-        "and",
-        "or",
-        "negate",
-        "heredoc_redir",
-        "dup_redir",
-        "file_redir",
-        "$(substitution)",
-        "function",
-        "assignment",
-        "variable_use",
-        "pipeline",
-        "command",
-    ]
-    counts = {name: 0 for name in features}
-
-    @functools.wraps(func)
-    def wrapper(node):
-        if isinstance(node, AST.BackgroundNode):
-            counts["background"] += 1
-        if isinstance(node, AST.PipeNode):
-            counts["pipeline"] += 1
-            if getattr(node, "is_background", False):
-                counts["background"] += 1
-        if isinstance(node, AST.SubshellNode):
-            counts["subshell"] += 1
-        if isinstance(node, AST.TArgChar):
-            counts["home_tilde"] += 1
-        if isinstance(node, AST.AArgChar):
-            counts["$((arithmetic))"] += 1
-        if isinstance(node, AST.BArgChar):
-            counts["$(substitution)"] += 1
-        if isinstance(node, AST.VArgChar):
-            counts["variable_use"] += 1
-        if isinstance(node, AST.AssignNode):
-            counts["assignment"] += 1
-        if isinstance(node, AST.DefunNode):
-            counts["function"] += 1
-        if isinstance(node, AST.WhileNode):
-            counts["while"] += 1
-        if isinstance(node, (AST.ForNode, AST.ArithForNode)):
-            counts["for"] += 1
-        if isinstance(node, AST.CaseNode):
-            counts["case"] += 1
-        if isinstance(node, AST.IfNode):
-            counts["if"] += 1
-        if isinstance(node, AST.AndNode):
-            counts["and"] += 1
-        if isinstance(node, AST.OrNode):
-            counts["or"] += 1
-        if isinstance(node, AST.NotNode):
-            counts["negate"] += 1
-        if isinstance(node, AST.HeredocRedirNode):
-            counts["heredoc_redir"] += 1
-        if isinstance(node, AST.DupRedirNode):
-            counts["dup_redir"] += 1
-        if isinstance(node, AST.FileRedirNode):
-            counts["file_redir"] += 1
-        if isinstance(node, AST.CommandNode):
-            counts["command"] += 1
-            if node.arguments:
-                cmd_name = AST.string_of_arg(node.arguments[0])
-                if cmd_name == "eval":
-                    counts["eval"] += 1
-                elif cmd_name == "alias":
-                    counts["alias"] += 1
-        return func(node)
-
-    wrapper.feature_counts = counts
-    wrapper.features = features
-    return wrapper
-
 def is_pure(node):
-    def _argchars_pure(argchars):
-        for ch in argchars:
-            if isinstance(ch, AST.VArgChar):
-                if ch.fmt == "Assign":
-                    return False
-                if not _argchars_pure(ch.arg):
-                    return False
-            elif isinstance(ch, (AST.QArgChar, AST.AArgChar)):
-                if not _argchars_pure(ch.arg):
-                    return False
-            elif isinstance(ch, AST.BArgChar):
-                if not is_pure(ch.node):
-                    return False
-            elif isinstance(ch, list) and all(isinstance(x, AST.ArgChar) for x in ch):
-                if not _argchars_pure(ch):
-                    return False
-        return True
-
-    def _fd_pure(fd):
-        if isinstance(fd, tuple) and len(fd) == 2 and fd[0] == "var":
-            return _argchars_pure(fd[1])
-        return True
-
     if node is None:
         return True
-    if isinstance(node, list):
-        if node and all(isinstance(x, AST.ArgChar) for x in node):
-            return _argchars_pure(node)
-        return all(is_pure(n) for n in node)
-    if isinstance(node, AST.CommandNode):
-        if node.arguments and not all(_argchars_pure(a) for a in node.arguments):
-            return False
-        for ass in node.assignments:
-            if not is_pure(ass):
-                return False
-        for redir in node.redir_list:
-            if not is_pure(redir):
-                return False
-        if node.arguments:
-            cmd_name = AST.string_of_arg(node.arguments[0])
-            if cmd_name in ("rm",):
-                return False
-        return True
-    if isinstance(node, AST.AssignNode):
-        return _argchars_pure(node.val)
-    if isinstance(node, AST.PipeNode):
-        return all(is_pure(n) for n in node.items)
-    if isinstance(node, AST.SubshellNode):
-        return is_pure(node.body) and all(is_pure(r) for r in node.redir_list)
-    if isinstance(node, AST.BackgroundNode):
-        return (
-            is_pure(node.node)
-            and (is_pure(node.after_ampersand) if node.after_ampersand else True)
-            and all(is_pure(r) for r in node.redir_list)
-        )
-    if isinstance(node, AST.RedirNode):
-        return is_pure(node.node) and all(is_pure(r) for r in node.redir_list)
-    if isinstance(node, AST.FileRedirNode):
-        return _argchars_pure(node.arg) if node.arg else True
-    if isinstance(node, AST.DupRedirNode):
-        return _fd_pure(node.fd) and _fd_pure(node.arg)
-    if isinstance(node, AST.HeredocRedirNode):
-        return _argchars_pure(node.arg)
-    if isinstance(node, AST.SingleArgRedirNode):
-        return _fd_pure(node.fd)
-    if isinstance(node, AST.DefunNode):
-        return is_pure(node.body)
-    if isinstance(node, AST.ForNode):
-        return (
-            _argchars_pure(node.variable)
-            and all(_argchars_pure(a) for a in node.argument)
-            and is_pure(node.body)
-        )
-    if isinstance(node, AST.ArithForNode):
-        return (
-            all(_argchars_pure(a) for a in node.init)
-            and all(_argchars_pure(a) for a in node.cond)
-            and all(_argchars_pure(a) for a in node.step)
-            and is_pure(node.body)
-        )
-    if isinstance(node, AST.WhileNode):
-        return is_pure(node.test) and is_pure(node.body)
-    if isinstance(node, AST.SemiNode):
-        return is_pure(node.left_operand) and is_pure(node.right_operand)
-    if isinstance(node, AST.AndNode):
-        return is_pure(node.left_operand) and is_pure(node.right_operand)
-    if isinstance(node, AST.OrNode):
-        return is_pure(node.left_operand) and is_pure(node.right_operand)
-    if isinstance(node, AST.NotNode):
-        return is_pure(node.body)
-    if isinstance(node, AST.IfNode):
-        return is_pure(node.cond) and is_pure(node.then_b) and is_pure(node.else_b)
-    if isinstance(node, AST.CaseNode):
-        if not _argchars_pure(node.argument):
-            return False
-        for case in node.cases:
-            for pat in case.get("cpattern", []):
-                if not _argchars_pure(pat):
-                    return False
-            body = case.get("cbody")
-            if body and not is_pure(body):
-                return False
-        return True
-    if isinstance(node, AST.ArithNode):
-        return all(_argchars_pure(a) for a in node.body)
-    if isinstance(node, AST.SelectNode):
-        return (
-            _argchars_pure(node.variable)
-            and all(_argchars_pure(a) for a in node.map_list)
-            and is_pure(node.body)
-        )
-    if isinstance(node, AST.GroupNode):
-        return is_pure(node.body)
-    if isinstance(node, AST.TimeNode):
-        return is_pure(node.command)
-    if isinstance(node, AST.CoprocNode):
-        return _argchars_pure(node.name) and is_pure(node.body)
-    return True
+    impure = False
+
+    def visit(n):
+        nonlocal impure
+        if impure:
+            return
+        match n:
+            case AST.VArgChar() if n.fmt == "Assign":
+                impure = True
+            case AST.BArgChar():
+                impure = True
+            case AST.CArgChar() | AST.EArgChar() if n.char == ord("`"):
+                impure = True
+            case AST.CommandNode():
+                if n.arguments:
+                    cmd_name = AST.string_of_arg(n.arguments[0])
+                    if cmd_name in ("rm", "alias"):
+                        impure = True
+            case _:
+                pass
+
+    walk_ast_node(node, visit=visit, replace=None)
+    return not impure
 
 def _string_to_argchars(text):
     return [AST.CArgChar(ord(ch)) for ch in text]
+
+def _is_stub_command(node, stub_dir="/tmp"):
+    match node:
+        case AST.CommandNode() if len(node.arguments) >= 2:
+            cmd = AST.string_of_arg(node.arguments[0])
+            path = AST.string_of_arg(node.arguments[1])
+            return cmd == "source" and path.startswith(f"{stub_dir}/stub_")
+        case _:
+            return False
 
 def walk_ast_node(node, visit=None, replace=None):
     if visit:
@@ -230,9 +55,11 @@ def walk_ast_node(node, visit=None, replace=None):
             return replaced
 
     def walk_fd(fd):
-        if isinstance(fd, tuple) and len(fd) == 2 and fd[0] == "var":
-            return ("var", walk_ast_node(fd[1], visit=visit, replace=replace))
-        return fd
+        match fd:
+            case ("var", argchars):
+                return ("var", walk_ast_node(argchars, visit=visit, replace=replace))
+            case _:
+                return fd
 
     match node:
         case list():
@@ -463,60 +290,72 @@ def make_pure_replacer(stub_dir="/tmp"):
         )
 
     def replace(node):
-        if isinstance(node, AST.Command) and is_pure(node):
-            return stubber(node)
-        return None
+        match node:
+            case AST.Command() if is_pure(node):
+                return stubber(node)
+            case _:
+                return None
 
     return replace
 
 def replace_pure_subtrees(ast, stub_dir="/tmp"):
     return walk_ast(ast, replace=make_pure_replacer(stub_dir))
 
-def make_command_prepender(prefix_cmd, only_commands=None):
+def make_command_prepender(prefix_cmd, only_commands=None, stub_dir="/tmp"):
     tokens = shlex.split(prefix_cmd)
     if not tokens:
         return lambda node: None
     prefix_args = [_string_to_argchars(token) for token in tokens]
     only_commands = [cmd for cmd in (only_commands or []) if cmd]
 
+    def _prepend_command_node(node, prefix_args):
+        assignments = [walk_ast_node(ass, replace=None) for ass in node.assignments]
+        arguments = [walk_ast_node(arg, replace=None) for arg in node.arguments]
+        redirs = [walk_ast_node(r, replace=None) for r in node.redir_list]
+        return AST.CommandNode(
+            arguments=prefix_args + arguments,
+            assignments=assignments,
+            redir_list=redirs,
+            **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
+        )
+
     def replace(node):
-        if not isinstance(node, AST.CommandNode):
-            return None
-        if only_commands:
-            if not node.arguments:
+        match node:
+            case AST.CommandNode():
+                if _is_stub_command(node, stub_dir=stub_dir):
+                    return None
+                if only_commands:
+                    if not node.arguments:
+                        return None
+                    cmd_name = AST.string_of_arg(node.arguments[0])
+                    if cmd_name not in only_commands:
+                        return None
+                return _prepend_command_node(node, prefix_args)
+            case _:
                 return None
-            cmd_name = AST.string_of_arg(node.arguments[0])
-            if cmd_name not in only_commands:
-                return None
-        return _prepend_command_node(node, prefix_args)
 
     return replace
 
-def _prepend_command_node(node, prefix_args):
-    assignments = [walk_ast_node(ass, replace=None) for ass in node.assignments]
-    arguments = [walk_ast_node(arg, replace=None) for arg in node.arguments]
-    redirs = [walk_ast_node(r, replace=None) for r in node.redir_list]
-    return AST.CommandNode(
-        arguments=prefix_args + arguments,
-        assignments=assignments,
-        redir_list=redirs,
-        **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
+def prepend_commands(ast, prefix_cmd, only_commands=None, stub_dir="/tmp"):
+    return walk_ast(
+        ast,
+        replace=make_command_prepender(prefix_cmd, only_commands=only_commands, stub_dir=stub_dir),
     )
-
-def prepend_commands(ast, prefix_cmd, only_commands=None):
-    return walk_ast(ast, replace=make_command_prepender(prefix_cmd, only_commands=only_commands))
 
 def get_pure_subtrees(ast):
     subtrees = []
     def replace(n):
-        if isinstance(n, AST.AstNode) and is_pure(n) and not isinstance(n, AST.ArgChar):
-            subtrees.append(n)
-            return n
-        return None
+        match n:
+            case AST.ArgChar():
+                return None
+            case AST.AstNode() if is_pure(n):
+                subtrees.append(n)
+                return n
+            case _:
+                return None
 
     walk_ast(ast, replace=replace)
     return subtrees
-
 
 # Parses straight a shell script to an AST
 # through python without calling it as an executable
@@ -526,8 +365,6 @@ def parse_shell_to_asts(input_script_path : str):
     new_ast_objects = libdash.parser.parse(input_script_path,init=INITIALIZE_LIBDASH)
     INITIALIZE_LIBDASH = False
     # Transform the untyped ast objects to typed ones
-    new_ast_objects = list(new_ast_objects)
-    typed_ast_objects = []
     for (
         untyped_ast,
         original_text,
@@ -535,13 +372,95 @@ def parse_shell_to_asts(input_script_path : str):
         linno_after,
     ) in new_ast_objects:
         typed_ast = to_ast_node(untyped_ast)
-        typed_ast_objects.append(
-            (typed_ast, original_text, linno_before, linno_after)
-        )
-    return typed_ast_objects
+        yield (typed_ast, original_text, linno_before, linno_after)
 
-@count_features
-@identity
+def make_feature_counter():
+    features = [
+        "background",
+        "subshell",
+        "home_tilde",
+        "$((arithmetic))",
+        "eval",
+        "alias",
+        "while",
+        "for",
+        "case",
+        "if",
+        "and",
+        "or",
+        "negate",
+        "heredoc_redir",
+        "dup_redir",
+        "file_redir",
+        "$(substitution)",
+        "function",
+        "assignment",
+        "variable_use",
+        "pipeline",
+        "command",
+    ]
+    feature_counts = {name: 0 for name in features}
+    # Weird way to do this, but avoids global variable/reset logic
+    make_feature_counter.feature_counts = feature_counts
+
+    def count_features(node):
+        match node:
+            case AST.BackgroundNode():
+                feature_counts["background"] += 1
+            case AST.PipeNode():
+                feature_counts["pipeline"] += 1
+                if node.is_background:
+                    feature_counts["background"] += 1
+            case AST.SubshellNode():
+                feature_counts["subshell"] += 1
+            case AST.TArgChar():
+                feature_counts["home_tilde"] += 1
+            case AST.AArgChar():
+                feature_counts["$((arithmetic))"] += 1
+            case AST.BArgChar():
+                feature_counts["$(substitution)"] += 1
+            case AST.VArgChar():
+                feature_counts["variable_use"] += 1
+            case AST.AssignNode():
+                feature_counts["assignment"] += 1
+            case AST.DefunNode():
+                feature_counts["function"] += 1
+            case AST.WhileNode():
+                feature_counts["while"] += 1
+            case AST.ForNode() | AST.ArithForNode():
+                feature_counts["for"] += 1
+            case AST.CaseNode():
+                feature_counts["case"] += 1
+            case AST.IfNode():
+                feature_counts["if"] += 1
+            case AST.AndNode():
+                feature_counts["and"] += 1
+            case AST.OrNode():
+                feature_counts["or"] += 1
+            case AST.NotNode():
+                feature_counts["negate"] += 1
+            case AST.HeredocRedirNode():
+                feature_counts["heredoc_redir"] += 1
+            case AST.DupRedirNode():
+                feature_counts["dup_redir"] += 1
+            case AST.FileRedirNode():
+                feature_counts["file_redir"] += 1
+            case AST.CommandNode():
+                feature_counts["command"] += 1
+                if node.arguments:
+                    cmd_name = AST.string_of_arg(node.arguments[0])
+                    if cmd_name == "eval":
+                        feature_counts["eval"] += 1
+                    elif cmd_name == "alias":
+                        feature_counts["alias"] += 1
+            case _:
+                pass
+        return node
+
+    return count_features
+
+
+
 def walk_node(node):
     return node
 
@@ -561,12 +480,13 @@ def main():
         help="Path to the input shell script",
     )
 
-    original_ast = parse_shell_to_asts(arg_parser.parse_args().input_script)
-    original_code = ast_to_code(walk_ast(original_ast, visit=walk_node))
+    original_ast = list(parse_shell_to_asts(arg_parser.parse_args().input_script))
+    original_code = ast_to_code(walk_ast(original_ast, visit=make_feature_counter()))
     print(original_code)
-
-    for feature in walk_node.features:
-        print(f"{feature}: {walk_node.feature_counts[feature]}", file=sys.stderr)
+    print('\n'.join(
+            f'- {feature} : {count}'
+            for feature, count in make_feature_counter.feature_counts.items()
+        ), file=sys.stderr)
     pure_subtrees = get_pure_subtrees(original_ast)
     print(f"Pure subtrees:", file=sys.stderr)
     for subtree in pure_subtrees:
