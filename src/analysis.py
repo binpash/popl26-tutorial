@@ -249,7 +249,7 @@ def walk_ast_node(node, visit=None, replace=None):
         case _:
             return node
 
-def make_pure_replacer(stub_dir="/tmp"):
+def pure_replacer(stub_dir="/tmp"):
     counter = itertools.count()
 
     def stubber(node):
@@ -299,9 +299,9 @@ def make_pure_replacer(stub_dir="/tmp"):
     return replace
 
 def replace_pure_subtrees(ast, stub_dir="/tmp"):
-    return walk_ast(ast, replace=make_pure_replacer(stub_dir))
+    return walk_ast(ast, replace=pure_replacer(stub_dir))
 
-def make_command_prepender(prefix_cmd, only_commands=None, stub_dir="/tmp"):
+def command_prepender(prefix_cmd, only_commands=None, stub_dir="/tmp"):
     tokens = shlex.split(prefix_cmd)
     if not tokens:
         return lambda node: None
@@ -339,7 +339,7 @@ def make_command_prepender(prefix_cmd, only_commands=None, stub_dir="/tmp"):
 def prepend_commands(ast, prefix_cmd, only_commands=None, stub_dir="/tmp"):
     return walk_ast(
         ast,
-        replace=make_command_prepender(prefix_cmd, only_commands=only_commands, stub_dir=stub_dir),
+        replace=command_prepender(prefix_cmd, only_commands=only_commands, stub_dir=stub_dir),
     )
 
 def get_pure_subtrees(ast):
@@ -374,7 +374,7 @@ def parse_shell_to_asts(input_script_path : str):
         typed_ast = to_ast_node(untyped_ast)
         yield (typed_ast, original_text, linno_before, linno_after)
 
-def make_feature_counter():
+def feature_counter():
     features = [
         "background",
         "subshell",
@@ -401,7 +401,7 @@ def make_feature_counter():
     ]
     feature_counts = {name: 0 for name in features}
     # Weird way to do this, but avoids global variable/reset logic
-    make_feature_counter.feature_counts = feature_counts
+    feature_counter.feature_counts = feature_counts
 
     def count_features(node):
         match node:
@@ -481,18 +481,21 @@ def main():
     )
 
     original_ast = list(parse_shell_to_asts(arg_parser.parse_args().input_script))
-    original_code = ast_to_code(walk_ast(original_ast, visit=make_feature_counter()))
+    original_code = ast_to_code(walk_ast(original_ast, visit=walk_node))
     print(original_code)
+    
+    walk_ast(original_ast, visit=feature_counter())
     print('\n'.join(
             f'- {feature} : {count}'
-            for feature, count in make_feature_counter.feature_counts.items()
+            for feature, count in feature_counter.feature_counts.items()
         ), file=sys.stderr)
+    
     pure_subtrees = get_pure_subtrees(original_ast)
     print(f"Pure subtrees:", file=sys.stderr)
     for subtree in pure_subtrees:
         print("-", subtree.pretty(), file=sys.stderr)
 
-    stubbed_ast = walk_ast(original_ast, replace=make_pure_replacer("/tmp"))
+    stubbed_ast = walk_ast(original_ast, replace=pure_replacer("/tmp"))
     print(ast_to_code(stubbed_ast))
 
     prepended_ast = prepend_commands(original_ast, "try")
