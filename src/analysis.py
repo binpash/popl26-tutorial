@@ -120,14 +120,6 @@ def walk_ast_node(node, visit=None, replace=None):
                 variable=walk_ast_node(node.variable, visit=visit, replace=replace),
                 **{k: v for k, v in vars(node).items() if k not in ("body", "argument", "variable")}
             )
-        case AST.ArithForNode():
-            return AST.ArithForNode(
-                init=[walk_ast_node(n, visit=visit, replace=replace) for n in node.init],
-                cond=[walk_ast_node(n, visit=visit, replace=replace) for n in node.cond],
-                step=[walk_ast_node(n, visit=visit, replace=replace) for n in node.step],
-                body=walk_ast_node(node.body, visit=visit, replace=replace),
-                **{k: v for k, v in vars(node).items() if k not in ("init", "cond", "step", "body")}
-            )
         case AST.WhileNode():
             return AST.WhileNode(
                 test=walk_ast_node(node.test, visit=visit, replace=replace),
@@ -217,34 +209,6 @@ def walk_ast_node(node, visit=None, replace=None):
             return AST.SingleArgRedirNode(
                 fd=walk_fd(node.fd),
                 **{k: v for k, v in vars(node).items() if k != "fd"}
-            )
-        case AST.ArithNode():
-            return AST.ArithNode(
-                body=[walk_ast_node(n, visit=visit, replace=replace) for n in node.body],
-                **{k: v for k, v in vars(node).items() if k != "body"}
-            )
-        case AST.SelectNode():
-            return AST.SelectNode(
-                variable=walk_ast_node(node.variable, visit=visit, replace=replace),
-                map_list=[walk_ast_node(n, visit=visit, replace=replace) for n in node.map_list],
-                body=walk_ast_node(node.body, visit=visit, replace=replace),
-                **{k: v for k, v in vars(node).items() if k not in ("variable", "map_list", "body")}
-            )
-        case AST.GroupNode():
-            return AST.GroupNode(
-                body=walk_ast_node(node.body, visit=visit, replace=replace),
-                **{k: v for k, v in vars(node).items() if k != "body"}
-            )
-        case AST.TimeNode():
-            return AST.TimeNode(
-                command=walk_ast_node(node.command, visit=visit, replace=replace),
-                **{k: v for k, v in vars(node).items() if k != "command"}
-            )
-        case AST.CoprocNode():
-            return AST.CoprocNode(
-                name=walk_ast_node(node.name, visit=visit, replace=replace),
-                body=walk_ast_node(node.body, visit=visit, replace=replace),
-                **{k: v for k, v in vars(node).items() if k not in ("name", "body")}
             )
         case _:
             return node
@@ -427,7 +391,7 @@ def feature_counter():
                 feature_counts["function"] += 1
             case AST.WhileNode():
                 feature_counts["while"] += 1
-            case AST.ForNode() | AST.ArithForNode():
+            case AST.ForNode():
                 feature_counts["for"] += 1
             case AST.CaseNode():
                 feature_counts["case"] += 1
