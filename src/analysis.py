@@ -221,20 +221,14 @@ def pure_replacer(stub_dir="/tmp"):
         stub_path = os.path.join(stub_dir, f"stub_{idx}")
         with open(stub_path, "w", encoding="utf-8") as handle:
             prologue = (
-                "__saved_vars=$(set)\n"
+                "__saved_exports=$(export -p)\n"
                 "__saved_aliases=$(alias)\n"
             )
             epilogue = (
                 "unalias -a 2>/dev/null\n"
                 "eval \"$__saved_aliases\"\n"
-                "while IFS= read -r __line; do\n"
-                "  case \"$__line\" in\n"
-                "    *=*) eval \"$__line\" ;;\n"
-                "  esac\n"
-                "done <<'__CODEX_VARS__'\n"
-                "${__saved_vars}\n"
-                "__CODEX_VARS__\n"
-                "unset __saved_vars __saved_aliases __line\n"
+                "eval \"$__saved_exports\"\n"
+                "unset __saved_exports __saved_aliases\n"
             )
             text = node.pretty()
             if text and not text.endswith("\n"):
