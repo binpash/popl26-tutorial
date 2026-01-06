@@ -1,3 +1,4 @@
 libdash @ git+https://github.com/binpash/libdash
 pash-annotations>=0.2.4
 shasta>=0.2.2
+sh-expand>=0.2.6

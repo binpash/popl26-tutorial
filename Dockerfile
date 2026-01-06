@@ -11,6 +11,7 @@ RUN apt-get update \
         net-tools \
         procps \
         util-linux \
+        bsdextrautils \
         attr \
         mergerfs \
         python3 \
@@ -25,6 +26,8 @@ RUN apt-get update \
 COPY requirements.txt /app/requirements.txt
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:/app/bin:$PATH"
+ENV LC_ALL=C
+ENV IFS=" \t\n"
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app

@@ -23,6 +23,8 @@ def is_pure(node):
                 impure = True
             case AST.AArgChar():
                 impure = True
+            case AST.AssignNode():
+                impure = True
             ## TODO: If anything other than word return impure immediately
             case _:
                 pass

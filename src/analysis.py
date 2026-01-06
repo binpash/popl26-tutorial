@@ -13,25 +13,6 @@ import pure
 def _string_to_argchars(text):
     return [AST.CArgChar(ord(ch)) for ch in text]
 
-def _is_stub_command(node, stub_dir="/tmp"):
-    match node:
-        case AST.CommandNode() if len(node.arguments) >= 2:
-            cmd = AST.string_of_arg(node.arguments[0])
-            path = AST.string_of_arg(node.arguments[1])
-            return cmd == "source" and path.startswith(f"{stub_dir}/stub_")
-        case _:
-            return False
-
-
-## jit.sh
-## 
-## save vars
-## save set
-## python expand.py region_$id > new_script_to_run
-## restore set
-## source new_script
-## 
-
 def pure_replacer(stub_dir="/tmp"):
     counter = itertools.count()
 
@@ -39,31 +20,19 @@ def pure_replacer(stub_dir="/tmp"):
         idx = next(counter)
         stub_path = os.path.join(stub_dir, f"stub_{idx}")
         with open(stub_path, "w", encoding="utf-8") as handle:
-            prologue = (
-                "__saved_exports=$(export -p)\n"
-                "__saved_aliases=$(alias)\n"
-            )
-            epilogue = (
-                "unalias -a 2>/dev/null\n"
-                "eval \"$__saved_aliases\"\n"
-                "eval \"$__saved_exports\"\n"
-                "unset __saved_exports __saved_aliases\n"
-            )
-            text = node.pretty()
-            if text and not text.endswith("\n"):
-                text += "\n"
-            handle.write(prologue)
+            text = node.pretty() + "\n"
             ## Whatever you do before executing this here is JIT
             ## Goal: JIT expand using sh_expand, and then do sth for safety (if the command is rm run it with try, or if command is rm with first argument don't run it)
             handle.write(text)
-            handle.write(epilogue)
         line_number = getattr(node, "line_number", -1)
         return AST.CommandNode(
             line_number=line_number,
-            assignments=[],
+            assignments=[
+                AST.AssignNode(var="JIT_INPUT", val=_string_to_argchars(stub_path)),
+            ],
             arguments=[
-                _string_to_argchars("source"),
-                _string_to_argchars(stub_path),
+                _string_to_argchars("."),
+                _string_to_argchars("src/jit.sh"),
             ],
             redir_list=[],
         )
@@ -80,7 +49,7 @@ def pure_replacer(stub_dir="/tmp"):
 def replace_pure_subtrees(ast, stub_dir="/tmp"):
     return walk_ast(ast, replace=pure_replacer(stub_dir))
 
-def command_prepender(prefix_cmd, only_commands=None, stub_dir="/tmp"):
+def command_prepender(prefix_cmd, only_commands=None):
     tokens = shlex.split(prefix_cmd)
     if not tokens:
         return lambda node: None
@@ -101,8 +70,6 @@ def command_prepender(prefix_cmd, only_commands=None, stub_dir="/tmp"):
     def replace(node):
         match node:
             case AST.CommandNode():
-                if _is_stub_command(node, stub_dir=stub_dir):
-                    return None
                 if only_commands:
                     if not node.arguments:
                         return None
@@ -115,15 +82,11 @@ def command_prepender(prefix_cmd, only_commands=None, stub_dir="/tmp"):
 
     return replace
 
-def prepend_commands(ast, prefix_cmd, only_commands=None, stub_dir="/tmp"):
+def prepend_commands(ast, prefix_cmd, only_commands=None):
     return walk_ast(
         ast,
-        replace=command_prepender(prefix_cmd, only_commands=only_commands, stub_dir=stub_dir),
+        replace=command_prepender(prefix_cmd, only_commands=only_commands),
     )
-
-
-
-
 
 def feature_counter():
     features = [
@@ -286,9 +249,10 @@ def main():
         print("-", subtree.pretty(), file=sys.stderr)
     print()
 
-
     stubbed_ast = walk_ast(original_ast, replace=pure_replacer("/tmp"))
-    print(parsing.ast_to_code(stubbed_ast))
+    compiled_file = open("/tmp/stubbed_output.sh", "w", encoding="utf-8")
+    print(parsing.ast_to_code(stubbed_ast), file=compiled_file)
+    compiled_file.close()
 
     prepended_ast = prepend_commands(original_ast, "try")
     print(parsing.ast_to_code(prepended_ast))

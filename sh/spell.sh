@@ -2,6 +2,8 @@
 # Calculate mispelled words in an input
 # https://dl.acm.org/doi/10.1145/3532.315102
 
+export LC_ALL=C
+
 top=$(git rev-parse --show-toplevel)
 dict="$top/dat/words.txt"
 
