@@ -36,7 +36,6 @@ def pure_replacer(stub_dir="/tmp"):
             ],
             redir_list=[],
         )
-
     def replace(node):
         match node:
             case AST.Command() if pure.is_pure(node):
@@ -69,11 +68,12 @@ def command_prepender(prefix_cmd, only_commands=None):
 
     def replace(node):
         match node:
-            case AST.CommandNode():
+            case AST.CommandNode() | AST.Command():
                 if only_commands:
                     if not node.arguments:
                         return None
-                    cmd_name = AST.string_of_arg(node.arguments[0])
+                    cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED)
+                    cmd_name = cmd_name.strip("\"'") # Stripping quotes because sh_expand leaves them in
                     if cmd_name not in only_commands:
                         return None
                 return _prepend_command_node(node, prefix_args)
@@ -250,15 +250,9 @@ def main():
     print()
 
     stubbed_ast = walk_ast(original_ast, replace=pure_replacer("/tmp"))
-    compiled_file = open("/tmp/stubbed_output.sh", "w", encoding="utf-8")
+    compiled_file = open(f"{input_script}.compiled", "w", encoding="utf-8")
     print(parsing.ast_to_code(stubbed_ast), file=compiled_file)
     compiled_file.close()
-
-    prepended_ast = prepend_commands(original_ast, "try")
-    print(parsing.ast_to_code(prepended_ast))
-
-    prepended_rm_ast = prepend_commands(original_ast, "try", only_commands=["rm"])
-    print(parsing.ast_to_code(prepended_rm_ast))
 
 if __name__ == "__main__":
     main()
