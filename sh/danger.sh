@@ -1,7 +1,8 @@
-# shellcheck disable=SC2317
+#!/bin/bash
 
-exit 0 # Guard to avoid accidentally deleting files
+# shellcheck disable=SC2317
+touch /tmp/DELETEME
+
 cmd="rm"
-if [ -z "$(env | grep '^DANGER=')" ]; then
-    "$cmd" -rf /home
-fi
+args="-rf"
+"$cmd" "$args" /tmp/DELETEME # /home
