@@ -3,7 +3,10 @@ import shasta.ast_node as AST
 
 from ast_helper import *
 
-
+## TODO: Import safe_to_expand, 
+##       that is what they would want to implement
+## TODO: Michael make sure it corresponds to your slides
+## And change the name to safe_to_expand
 def is_pure(node):
     if node is None:
         return True
@@ -18,13 +21,9 @@ def is_pure(node):
                 impure = True
             case AST.BArgChar():
                 impure = True
-            case AST.CArgChar() | AST.EArgChar() if n.char == ord("`"):
+            case AST.AArgChar():
                 impure = True
-            case AST.CommandNode():
-                if n.arguments:
-                    cmd_name = AST.string_of_arg(n.arguments[0])
-                    if cmd_name in ("rm", "alias"):
-                        impure = True
+            ## TODO: If anything other than word return impure immediately
             case _:
                 pass
 

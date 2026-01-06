@@ -23,6 +23,15 @@ def _is_stub_command(node, stub_dir="/tmp"):
             return False
 
 
+## jit.sh
+## 
+## save vars
+## save set
+## python expand.py region_$id > new_script_to_run
+## restore set
+## source new_script
+## 
+
 def pure_replacer(stub_dir="/tmp"):
     counter = itertools.count()
 
@@ -44,6 +53,8 @@ def pure_replacer(stub_dir="/tmp"):
             if text and not text.endswith("\n"):
                 text += "\n"
             handle.write(prologue)
+            ## Whatever you do before executing this here is JIT
+            ## Goal: JIT expand using sh_expand, and then do sth for safety (if the command is rm run it with try, or if command is rm with first argument don't run it)
             handle.write(text)
             handle.write(epilogue)
         line_number = getattr(node, "line_number", -1)
@@ -59,7 +70,7 @@ def pure_replacer(stub_dir="/tmp"):
 
     def replace(node):
         match node:
-            case AST.Command() if is_pure(node):
+            case AST.Command() if pure.is_pure(node):
                 return stubber(node)
             case _:
                 return None
@@ -221,9 +232,10 @@ def step1_parse_unparse_script(input_script):
     print()
     return ast
 
-## New proposed exercise steps:
+## New proposed exercise steps for the first half:
 ## Step 1: 
 ##   Parse script
+##   Hint: Use libdash and figure out how to call it
 ##   Inspect results by checking AST
 ##  
 ## Step 2: 
@@ -240,7 +252,7 @@ def step1_parse_unparse_script(input_script):
 ##   Run it on multiple scripts and inspect differences
 ##
 ## Step 5:
-##   Write an analysis that checks if the AST is 
+##   Write an analysis that finds all subtrees that are safe to expand
 ##   Challenge: Think carefully about what parts of the AST are pure
 ##   Run it on multiple scripts
 
@@ -274,17 +286,15 @@ def main():
         print("-", subtree.pretty(), file=sys.stderr)
     print()
 
-    exit()
-
 
     stubbed_ast = walk_ast(original_ast, replace=pure_replacer("/tmp"))
-    print(ast_to_code(stubbed_ast))
+    print(parsing.ast_to_code(stubbed_ast))
 
     prepended_ast = prepend_commands(original_ast, "try")
-    print(ast_to_code(prepended_ast))
+    print(parsing.ast_to_code(prepended_ast))
 
     prepended_rm_ast = prepend_commands(original_ast, "try", only_commands=["rm"])
-    print(ast_to_code(prepended_rm_ast))
+    print(parsing.ast_to_code(prepended_rm_ast))
 
 if __name__ == "__main__":
     main()
