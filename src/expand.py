@@ -14,6 +14,14 @@ import sh_expand.expand as sh_expand
 
 def _env_to_expansion_state(sh_expand):
     variables = {k: [None, v] for k, v in os.environ.items()}
+    # Treat unset variables as errors so we can fall back to the original node.
+    # Otherwise, sh-expand treats unset variables as empty strings.
+    variables["-"] = [None, "u"]
+    for key, value in os.environ.items():
+        if key.startswith("JIT_POS_"):
+            suffix = key[len("JIT_POS_"):]
+            if suffix.isdigit():
+                variables[suffix] = [None, value]
     return sh_expand.ExpansionState(variables)
 
 
