@@ -7,33 +7,8 @@ import shlex
 
 from ast_helper import *
 import parsing
+import pure
 
-def is_pure(node):
-    if node is None:
-        return True
-    impure = False
-
-    def visit(n):
-        nonlocal impure
-        if impure:
-            return
-        match n:
-            case AST.VArgChar() if n.fmt == "Assign":
-                impure = True
-            case AST.BArgChar():
-                impure = True
-            case AST.CArgChar() | AST.EArgChar() if n.char == ord("`"):
-                impure = True
-            case AST.CommandNode():
-                if n.arguments:
-                    cmd_name = AST.string_of_arg(n.arguments[0])
-                    if cmd_name in ("rm", "alias"):
-                        impure = True
-            case _:
-                pass
-
-    walk_ast_node(node, visit=visit, replace=None)
-    return not impure
 
 def _string_to_argchars(text):
     return [AST.CArgChar(ord(ch)) for ch in text]
@@ -135,20 +110,7 @@ def prepend_commands(ast, prefix_cmd, only_commands=None, stub_dir="/tmp"):
         replace=command_prepender(prefix_cmd, only_commands=only_commands, stub_dir=stub_dir),
     )
 
-def get_pure_subtrees(ast):
-    subtrees = []
-    def replace(n):
-        match n:
-            case AST.ArgChar():
-                return None
-            case AST.AstNode() if is_pure(n):
-                subtrees.append(n)
-                return n
-            case _:
-                return None
 
-    walk_ast(ast, replace=replace)
-    return subtrees
 
 
 
@@ -259,6 +221,29 @@ def step1_parse_unparse_script(input_script):
     print()
     return ast
 
+## New proposed exercise steps:
+## Step 1: 
+##   Parse script
+##   Inspect results by checking AST
+##  
+## Step 2: 
+##   Build a generic walk_ast function (provide signature) 
+##   Inspect if it works by printing each node (should be the same as print)
+##
+## Step 3: 
+##   Unparse (trivial application of walk_ast)
+##   Hint: Check the AST class for useful method
+##   Inspect the syntactic differences of
+##
+## Step 4: 
+##   Write a feature counter
+##   Run it on multiple scripts and inspect differences
+##
+## Step 5:
+##   Write an analysis that checks if the AST is 
+##   Challenge: Think carefully about what parts of the AST are pure
+##   Run it on multiple scripts
+
 def main():
     arg_parser = argparse.ArgumentParser(
         description=f"Transform a shell script and outputs the modified script"
@@ -271,19 +256,26 @@ def main():
     args = arg_parser.parse_args()
     input_script = args.input_script
 
+    ## Step 1: Parse/unparse
     original_ast = step1_parse_unparse_script(input_script)
-    exit()
 
     walk_ast(original_ast, visit=feature_counter())
+    print('Features:')
     print('\n'.join(
             f'- {feature} : {count}'
             for feature, count in feature_counter.feature_counts.items()
         ), file=sys.stderr)
+    print()
+
     
-    pure_subtrees = get_pure_subtrees(original_ast)
+    pure_subtrees = pure.get_pure_subtrees(original_ast)
     print(f"Pure subtrees:", file=sys.stderr)
     for subtree in pure_subtrees:
         print("-", subtree.pretty(), file=sys.stderr)
+    print()
+
+    exit()
+
 
     stubbed_ast = walk_ast(original_ast, replace=pure_replacer("/tmp"))
     print(ast_to_code(stubbed_ast))
