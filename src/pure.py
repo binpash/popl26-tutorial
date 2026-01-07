@@ -5,8 +5,7 @@ from ast_helper import *
 
 ## TODO: Fix this 
 ## TODO: Michael make sure it corresponds to your slides
-## And change the name to safe_to_expand
-def is_pure(node):
+def is_safe_to_expand(node):
     if node is None:
         return True
     impure = False
@@ -33,13 +32,13 @@ def is_pure(node):
     walk_ast_node(node, visit=visit, replace=None)
     return not impure
 
-def get_pure_subtrees(ast):
+def get_safe_to_expand_subtrees(ast):
     subtrees = []
     def replace(n):
         match n:
             case AST.ArgChar():
                 return None
-            case AST.AstNode() if is_pure(n):
+            case AST.AstNode() if is_safe_to_expand(n):
                 subtrees.append(n)
                 return n
             case _:

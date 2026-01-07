@@ -39,14 +39,14 @@ def pure_replacer(stub_dir="/tmp"):
         )
     def replace(node):
         match node:
-            case AST.Command() if pure.is_pure(node):
+            case AST.Command() if pure.is_safe_to_expand(node):
                 return stubber(node)
             case _:
                 return None
 
     return replace
 
-def replace_pure_subtrees(ast, stub_dir="/tmp"):
+def replace_safe_to_expand_subtrees(ast, stub_dir="/tmp"):
     return walk_ast(ast, replace=pure_replacer(stub_dir))
 
 def command_prepender(prefix_cmd, only_commands=None):
@@ -171,9 +171,9 @@ def step4_feature_counter(ast):
 ## Run it on multiple scripts
 ##
 def step5_safe_to_expand_subtrees(ast):    
-    pure_subtrees = pure.get_pure_subtrees(ast)
+    safe_to_expand_subtrees = pure.get_safe_to_expand_subtrees(ast)
     print(f"Safe to expand subtrees:", file=sys.stderr)
-    for subtree in pure_subtrees:
+    for subtree in safe_to_expand_subtrees:
         print("-", subtree.pretty(), file=sys.stderr)
     print()
 
@@ -239,7 +239,6 @@ def step8_preprocess_print(ast):
 
 
 ## TODOs:
-## - (Vagos) Change name of is_pure to is_safe_to_expand
 ## - (Vagos) Fix the safe_to_expand to only print safe to expand words
 ## - (Vagos) Create a new version of the preprocessing replacer for step 6 that doesn't replace with JIT, but rather replaces with a cat and the saved command file, so essentially it just prints all commands
 ## - (Vagos) Create a new version of preprocessing replacer for Step 7 that replcaes with jit_step5.sh
