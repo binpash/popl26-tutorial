@@ -246,8 +246,9 @@ def step8_preprocess_print(ast):
 ## - (Vagos) Create a new version of preprocessing replacer for Step 7 that replcaes with jit_step5.sh
 ## - (Vagos) How are we supposed to run the final script? I get errors for sh_expand
 ## - (Vagos) Create a mini script that prints something simple with an if-else and add a test that makes sure that the final step8 jit returns the same as the uncompiled script
-## - (Michael) Decide what to cut and what to provide
+## - (Michael) Decide what to cut for each step and what to provide
 ## - (Michael) Polish comments
+## - (Michael) Come up with hints for steps 6-8
 ## - (Michael) Make sure that the complete script corresponds to what you are talking about in the slides
 ## 
 
