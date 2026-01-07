@@ -14,7 +14,7 @@ import pure
 def _string_to_argchars(text):
     return [AST.CArgChar(ord(ch)) for ch in text]
 
-def pure_replacer(stub_dir="/tmp"):
+def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
     counter = itertools.count()
 
     def stubber(node):
@@ -29,11 +29,12 @@ def pure_replacer(stub_dir="/tmp"):
         return AST.CommandNode(
             line_number=line_number,
             assignments=[
+                *node.assignments, # Keep original assignments
                 AST.AssignNode(var="JIT_INPUT", val=_string_to_argchars(stub_path)),
             ],
             arguments=[
                 _string_to_argchars("."),
-                _string_to_argchars("src/jit.sh"),
+                _string_to_argchars(jit_script),
             ],
             redir_list=[],
         )
@@ -46,8 +47,39 @@ def pure_replacer(stub_dir="/tmp"):
 
     return replace
 
+def replace_with_cat(stub_dir="/tmp"):
+    counter = itertools.count()
+
+    def stubber(node):
+        idx = next(counter)
+        stub_path = os.path.join(stub_dir, f"cat_stub_{idx}")
+        with open(stub_path, "w", encoding="utf-8") as handle:
+            text = node.pretty() + "\n"
+            ## Whatever you do before executing this here is JIT
+            ## Goal: JIT expand using sh_expand, and then do sth for safety (if the command is rm run it with try, or if command is rm with first argument don't run it)
+            handle.write(text)
+        line_number = getattr(node, "line_number", -1)
+        return AST.CommandNode(
+            assignments=node.assignments,
+            line_number=line_number,
+            arguments=[
+                _string_to_argchars("cat"),
+                _string_to_argchars(stub_path)
+            ],
+            redir_list=[],
+        )
+    def replace(node):
+        match node:
+            case AST.Command() if pure.is_safe_to_expand(node):
+                return stubber(node)
+            case _:
+                return None
+
+    return replace
+
+
 def replace_safe_to_expand_subtrees(ast, stub_dir="/tmp"):
-    return walk_ast(ast, replace=pure_replacer(stub_dir))
+    return walk_ast(ast, replace=replace_with_jit(stub_dir))
 
 def command_prepender(prefix_cmd, only_commands=None):
     tokens = shlex.split(prefix_cmd)
@@ -190,10 +222,9 @@ def step5_safe_to_expand_subtrees(ast):
 ## commands are printed properly
 ## 
 def step6_preprocess_print(ast):
-    ## TODO: (Vagos) Change this to replace with cat instead of JIT
-    stubbed_ast = walk_ast(ast, replace=pure_replacer("/tmp"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_cat("/tmp"))
     preprocessed_script = parsing.ast_to_code(stubbed_ast)
-    print("Preprocessed script:")
+    print("Preprocessed script (just using cat to print commands):")
     print(preprocessed_script)
     print()
     return preprocessed_script
@@ -210,8 +241,7 @@ def step6_preprocess_print(ast):
 ## Inspect by running the transformed script and seeing if it runs properly
 ## 
 def step7_preprocess_print(ast):
-    ## TODO: (Vagos) Change this to replace with jit_step5.sh
-    stubbed_ast = walk_ast(ast, replace=pure_replacer("/tmp"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp", jit_script="src/jit_step5.sh"))
     preprocessed_script = parsing.ast_to_code(stubbed_ast)
     print("JIT-printed script:")
     print(preprocessed_script)
@@ -230,7 +260,7 @@ def step7_preprocess_print(ast):
 ## 
 def step8_preprocess_print(ast):
     ## TODO: (Vagos) Make sure this runs the same way as the original script
-    stubbed_ast = walk_ast(ast, replace=pure_replacer("/tmp"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp"))
     preprocessed_script = parsing.ast_to_code(stubbed_ast)
     print("JIT-expanded script):")
     print(preprocessed_script)
@@ -285,12 +315,12 @@ def main():
         print(preprocessed_script, file=out_file)
 
     ## Step 7: Preprocess using the JIT
-    preprocessed_script = step6_preprocess_print(original_ast)
+    preprocessed_script = step7_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.2", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
 
     ## Step 8: Preprocess using the JIT and expand before executing
-    preprocessed_script = step6_preprocess_print(original_ast)
+    preprocessed_script = step8_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
     print(f"Run {input_script}.preprocessed.3 to inspect it runs the same as the original")
