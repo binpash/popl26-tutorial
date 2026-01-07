@@ -6,6 +6,7 @@ import os
 import shlex
 
 from ast_helper import *
+from feature_counter import feature_counter
 import parsing
 import pure
 
@@ -88,103 +89,19 @@ def prepend_commands(ast, prefix_cmd, only_commands=None):
         replace=command_prepender(prefix_cmd, only_commands=only_commands),
     )
 
-def feature_counter():
-    features = [
-        "background",
-        "subshell",
-        "home_tilde",
-        "$((arithmetic))",
-        "eval",
-        "alias",
-        "while",
-        "for",
-        "case",
-        "if",
-        "and",
-        "or",
-        "negate",
-        "heredoc_redir",
-        "dup_redir",
-        "file_redir",
-        "$(substitution)",
-        "function",
-        "assignment",
-        "variable_use",
-        "pipeline",
-        "command",
-    ]
-    feature_counts = {name: 0 for name in features}
-    # Weird way to do this, but avoids global variable/reset logic
-    feature_counter.feature_counts = feature_counts
-
-    def count_features(node):
-        match node:
-            case AST.BackgroundNode():
-                feature_counts["background"] += 1
-            case AST.PipeNode():
-                feature_counts["pipeline"] += 1
-                if node.is_background:
-                    feature_counts["background"] += 1
-            case AST.SubshellNode():
-                feature_counts["subshell"] += 1
-            case AST.TArgChar():
-                feature_counts["home_tilde"] += 1
-            case AST.AArgChar():
-                feature_counts["$((arithmetic))"] += 1
-            case AST.BArgChar():
-                feature_counts["$(substitution)"] += 1
-            case AST.VArgChar():
-                feature_counts["variable_use"] += 1
-            case AST.AssignNode():
-                feature_counts["assignment"] += 1
-            case AST.DefunNode():
-                feature_counts["function"] += 1
-            case AST.WhileNode():
-                feature_counts["while"] += 1
-            case AST.ForNode():
-                feature_counts["for"] += 1
-            case AST.CaseNode():
-                feature_counts["case"] += 1
-            case AST.IfNode():
-                feature_counts["if"] += 1
-            case AST.AndNode():
-                feature_counts["and"] += 1
-            case AST.OrNode():
-                feature_counts["or"] += 1
-            case AST.NotNode():
-                feature_counts["negate"] += 1
-            case AST.HeredocRedirNode():
-                feature_counts["heredoc_redir"] += 1
-            case AST.DupRedirNode():
-                feature_counts["dup_redir"] += 1
-            case AST.FileRedirNode():
-                feature_counts["file_redir"] += 1
-            case AST.CommandNode():
-                feature_counts["command"] += 1
-                if node.arguments:
-                    cmd_name = AST.string_of_arg(node.arguments[0])
-                    if cmd_name == "eval":
-                        feature_counts["eval"] += 1
-                    elif cmd_name == "alias":
-                        feature_counts["alias"] += 1
-            case _:
-                pass
-        return node
-
-    return count_features
-
-
-
-
 
 
 
 ##
 ## Step 1: 
-## Parse a script, print its AST, unparse it,
-## and print the unparsed script.        
+##   Parse a script, print its AST, unparse it,
+##   and print the unparsed script.        
 ##
-def step1_parse_unparse_script(input_script):
+## Hint: Use libdash and figure out how to call it
+##
+## Inspect results by checking AST
+##
+def step1_parse_script(input_script):
     ast = list(parsing.parse_shell_to_asts(input_script))
     print("Script AST, pay attention to the different nodes:")
     print(ast)
@@ -195,29 +112,144 @@ def step1_parse_unparse_script(input_script):
     print()
     return ast
 
-## New proposed exercise steps for the first half:
-## Step 1: 
-##   Parse script
-##   Hint: Use libdash and figure out how to call it
-##   Inspect results by checking AST
+
 ##  
 ## Step 2: 
-##   Build a generic walk_ast function (provide signature) 
-##   Inspect if it works by printing each node (should be the same as print)
+##   Build a generic walk_ast function that can apply a
+##   visitor and a transformer function to each node.
+##
+##   def walk_ast(ast, visit=None, replace=None):
+##   
+##   It should take three arguments:
+##     1. The shasta AST
+##     2. An optional visit argument that is a function that will be applied on every node
+##     3. An optional replace argument that is a function that can replace a node
+##
+## Inspect if it works by printing each node (should be the same as print)
+##
+def step2_walk_print(ast):
+    print("Printing the AST through walk")
+    walk_ast(ast, visit=print)
+
 ##
 ## Step 3: 
-##   Unparse (trivial application of walk_ast)
-##   Hint: Check the AST class for useful method
-##   Inspect the syntactic differences of
+##   Unparse the AST back to shell code
+##
+## Hint: Check the AST class for useful method to unparse
+##
+## Inspect the syntactic differences of the unparsed and original script
+##
+def step3_unparse(ast):
+    print("Unparsed AST, pay attention to syntactic differences with the original script:")
+    unparsed_code = parsing.ast_to_code(walk_ast(ast, visit=lambda node: node))
+    print(unparsed_code)
+    print()
+    return unparsed_code
+
 ##
 ## Step 4: 
 ##   Write a feature counter
-##   Run it on multiple scripts and inspect differences
+##
+## Inspect by running on multiple scripts
+##
+def step4_feature_counter(ast):
+    walk_ast(ast, visit=feature_counter())
+    print('Features:')
+    print('\n'.join(
+            f'- {feature} : {count}'
+            for feature, count in feature_counter.feature_counts.items()
+        ), file=sys.stderr)
+    print()
+
+
 ##
 ## Step 5:
 ##   Write an analysis that finds all subtrees that are safe to expand
-##   Challenge: Think carefully about what parts of the AST are pure
-##   Run it on multiple scripts
+##
+## Challenge: Think carefully about what parts of the AST are pure
+##
+## Run it on multiple scripts
+##
+def step5_safe_to_expand_subtrees(ast):    
+    pure_subtrees = pure.get_pure_subtrees(ast)
+    print(f"Safe to expand subtrees:", file=sys.stderr)
+    for subtree in pure_subtrees:
+        print("-", subtree.pretty(), file=sys.stderr)
+    print()
+
+##
+## Step 6:
+##   Write a transformation pass that saves all simple commands 
+##   and pipelinesreplaces in the AST in separate files, and
+##   replaces them with calls to `cat` and that file instead of
+##   running them
+## 
+## TODO: Add hints, this is hard
+##
+## Inspect by running the transformed script and seeing if all the
+## commands are printed properly
+## 
+def step6_preprocess_print(ast):
+    ## TODO: (Vagos) Change this to replace with cat instead of JIT
+    stubbed_ast = walk_ast(ast, replace=pure_replacer("/tmp"))
+    preprocessed_script = parsing.ast_to_code(stubbed_ast)
+    print("Preprocessed script:")
+    print(preprocessed_script)
+    print()
+    return preprocessed_script
+
+##
+## Step 7:
+##   Create a JIT script that saves the shell state, prints out
+##   the command that it will run, and then restores the state and runs it
+##   Use the preprocessing that you built before to replace all
+##   simple commands and pipelines with this JIT
+## 
+## TODO: Hints
+##
+## Inspect by running the transformed script and seeing if it runs properly
+## 
+def step7_preprocess_print(ast):
+    ## TODO: (Vagos) Change this to replace with jit_step5.sh
+    stubbed_ast = walk_ast(ast, replace=pure_replacer("/tmp"))
+    preprocessed_script = parsing.ast_to_code(stubbed_ast)
+    print("JIT-printed script:")
+    print(preprocessed_script)
+    print()
+    return preprocessed_script
+
+##
+## Step 8:
+##   Modify the JIT script to first expand the simple command or pipeline
+##   then print out this expanded command, and then run it
+## 
+## TODO: Hints
+##
+## Inspect by running the transformed script and seeing if it returns the same results
+## as the original one
+## 
+def step8_preprocess_print(ast):
+    ## TODO: (Vagos) Make sure this runs the same way as the original script
+    stubbed_ast = walk_ast(ast, replace=pure_replacer("/tmp"))
+    preprocessed_script = parsing.ast_to_code(stubbed_ast)
+    print("JIT-expanded script):")
+    print(preprocessed_script)
+    print()
+    return preprocessed_script
+
+
+## TODOs:
+## - (Vagos) Change name of is_pure to is_safe_to_expand
+## - (Vagos) Fix the safe_to_expand to only print safe to expand words
+## - (Vagos) Fix preprocessing. When running `python src/analysis.py sh/audit.sh` the if structure is gone completely. Only simple commands and pipelines should be replaced
+## - (Vagos) Create a new version of the preprocessing replacer for step 6 that doesn't replace with JIT, but rather replaces with a cat and the saved command file, so essentially it just prints all commands
+## - (Vagos) Create a new version of preprocessing replacer for Step 7 that replcaes with jit_step5.sh
+## - (Vagos) How are we supposed to run the final script? I get errors for sh_expand
+## - (Vagos) Create a mini script that prints something simple with an if-else and add a test that makes sure that the final step8 jit returns the same as the uncompiled script
+## - (Michael) Decide what to cut and what to provide
+## - (Michael) Polish comments
+## - (Michael) Make sure that the is_safe_to_expand is correct
+## 
 
 def main():
     arg_parser = argparse.ArgumentParser(
@@ -232,27 +264,37 @@ def main():
     input_script = args.input_script
 
     ## Step 1: Parse/unparse
-    original_ast = step1_parse_unparse_script(input_script)
+    original_ast = step1_parse_script(input_script)
 
-    walk_ast(original_ast, visit=feature_counter())
-    print('Features:')
-    print('\n'.join(
-            f'- {feature} : {count}'
-            for feature, count in feature_counter.feature_counts.items()
-        ), file=sys.stderr)
-    print()
-
+    ## Step 2: Walk and print
+    step2_walk_print(original_ast)
     
-    pure_subtrees = pure.get_pure_subtrees(original_ast)
-    print(f"Pure subtrees:", file=sys.stderr)
-    for subtree in pure_subtrees:
-        print("-", subtree.pretty(), file=sys.stderr)
-    print()
+    ## Step 3: Unparse
+    unparsed_code = step3_unparse(original_ast)
 
-    stubbed_ast = walk_ast(original_ast, replace=pure_replacer("/tmp"))
-    compiled_file = open(f"{input_script}.compiled", "w", encoding="utf-8")
-    print(parsing.ast_to_code(stubbed_ast), file=compiled_file)
-    compiled_file.close()
+    ## Step 4: Feature counter
+    step4_feature_counter(original_ast)
+
+    ## Step 5: Safe to expand subtrees
+    step5_safe_to_expand_subtrees(original_ast)
+    
+    ## Part 2
+
+    ## Step 6: Preprocess and print each command
+    preprocessed_script = step6_preprocess_print(original_ast)
+    with open(f"{input_script}.preprocessed.1", "w", encoding="utf-8") as out_file:
+        print(preprocessed_script, file=out_file)
+
+    ## Step 7: Preprocess using the JIT
+    preprocessed_script = step6_preprocess_print(original_ast)
+    with open(f"{input_script}.preprocessed.2", "w", encoding="utf-8") as out_file:
+        print(preprocessed_script, file=out_file)
+
+    ## Step 8: Preprocess using the JIT and expand before executing
+    preprocessed_script = step6_preprocess_print(original_ast)
+    with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
+        print(preprocessed_script, file=out_file)
+    print(f"Run {input_script}.preprocessed.3 to inspect it runs the same as the original")
 
 if __name__ == "__main__":
     main()

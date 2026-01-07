@@ -3,8 +3,7 @@ import shasta.ast_node as AST
 
 from ast_helper import *
 
-## TODO: Import safe_to_expand, 
-##       that is what they would want to implement
+## TODO: Fix this 
 ## TODO: Michael make sure it corresponds to your slides
 ## And change the name to safe_to_expand
 def is_pure(node):
