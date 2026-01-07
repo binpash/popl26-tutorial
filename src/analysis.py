@@ -248,7 +248,7 @@ def step8_preprocess_print(ast):
 ## - (Vagos) Create a mini script that prints something simple with an if-else and add a test that makes sure that the final step8 jit returns the same as the uncompiled script
 ## - (Michael) Decide what to cut and what to provide
 ## - (Michael) Polish comments
-## - (Michael) Make sure that the is_safe_to_expand is correct
+## - (Michael) Make sure that the complete script corresponds to what you are talking about in the slides
 ## 
 
 def main():
