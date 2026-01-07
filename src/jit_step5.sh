@@ -1,6 +1,7 @@
 #!/bin/sh
 
 __input="$JIT_INPUT"
+unset __cmd_status
 
 if [ -z "$__input" ] || [ ! -f "$__input" ]; then
   echo "jit.sh: missing input script" >&2
@@ -23,9 +24,10 @@ __expanded=$__input".expanded"
 echo "Will execute this script"
 cat "$__input"
 . "$__input"
+__cmd_status=$?
 
 # Restore previous shell state
-__unexported_vars="$(echo "$__saved_sets" | sed 's/^/unset /' | sed 's/=/ /')"
+__unexported_vars="$(echo "$__saved_sets" | sed 's/^/unset /' | sed 's/=.*//')"
 eval "$__unexported_vars"
 eval "$__saved_sets"
 __idx=1
@@ -34,3 +36,4 @@ for __arg in "$@"; do
   __idx=$((__idx + 1))
 done
 unset __saved_sets __expanded __input __exported_vars __unexported_vars __idx __arg
+(exit "$__cmd_status")

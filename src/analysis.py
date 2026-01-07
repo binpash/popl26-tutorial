@@ -259,7 +259,6 @@ def step7_preprocess_print(ast):
 ## as the original one
 ## 
 def step8_preprocess_print(ast):
-    ## TODO: (Vagos) Make sure this runs the same way as the original script
     stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp"))
     preprocessed_script = parsing.ast_to_code(stubbed_ast)
     print("JIT-expanded script):")
@@ -269,11 +268,6 @@ def step8_preprocess_print(ast):
 
 
 ## TODOs:
-## - (Vagos) Fix the safe_to_expand to only print safe to expand words
-## - (Vagos) Create a new version of the preprocessing replacer for step 6 that doesn't replace with JIT, but rather replaces with a cat and the saved command file, so essentially it just prints all commands
-## - (Vagos) Create a new version of preprocessing replacer for Step 7 that replcaes with jit_step5.sh
-## - (Vagos) How are we supposed to run the final script? I get errors for sh_expand
-## - (Vagos) Create a mini script that prints something simple with an if-else and add a test that makes sure that the final step8 jit returns the same as the uncompiled script
 ## - (Michael) Decide what to cut for each step and what to provide
 ## - (Michael) Polish comments
 ## - (Michael) Come up with hints for steps 6-8
@@ -323,7 +317,7 @@ def main():
     preprocessed_script = step8_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
-    print(f"Run {input_script}.preprocessed.3 to inspect it runs the same as the original")
+    print(f"Now run {input_script}.preprocessed.3 and confirm it produces the same output as {input_script}")
 
 if __name__ == "__main__":
     main()

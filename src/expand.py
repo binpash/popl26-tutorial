@@ -51,7 +51,6 @@ def main():
 
     output = expand_script(args.input_script, sh_expand)
     print(output)
-    return 0
 
 if __name__ == "__main__":
     main()
