@@ -241,7 +241,6 @@ def step8_preprocess_print(ast):
 ## TODOs:
 ## - (Vagos) Change name of is_pure to is_safe_to_expand
 ## - (Vagos) Fix the safe_to_expand to only print safe to expand words
-## - (Vagos) Fix preprocessing. When running `python src/analysis.py sh/audit.sh` the if structure is gone completely. Only simple commands and pipelines should be replaced
 ## - (Vagos) Create a new version of the preprocessing replacer for step 6 that doesn't replace with JIT, but rather replaces with a cat and the saved command file, so essentially it just prints all commands
 ## - (Vagos) Create a new version of preprocessing replacer for Step 7 that replcaes with jit_step5.sh
 ## - (Vagos) How are we supposed to run the final script? I get errors for sh_expand

@@ -16,6 +16,8 @@ def is_pure(node):
         if impure:
             return
         match n:
+            case AST.IfNode() | AST.WhileNode() | AST.ForNode() | AST.CaseNode():
+                impure = True
             case AST.VArgChar() if n.fmt == "Assign":
                 impure = True
             case AST.BArgChar():
