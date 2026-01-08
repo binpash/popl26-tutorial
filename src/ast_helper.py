@@ -7,9 +7,6 @@ import shasta.ast_node as AST
 def string_to_argchars(text):
     return [AST.CArgChar(ord(ch)) for ch in text]
 
-def walk_node(node):
-    return node
-
 def walk_ast(ast, visit=None, replace=None):
     return [walk_ast_node(node, visit=visit, replace=replace) for node, _, _, _ in ast]
 

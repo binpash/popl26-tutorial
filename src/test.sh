@@ -9,8 +9,9 @@ check_test()
   else
       echo "[FAILURE]"
   fi
+  return "$passed"
 }
 
-python src/solution.py sh/simple.sh # This will create sh/simple.sh.preprocessed.3
+python3 src/solution.py sh/simple.sh || exit 1 # This will create sh/simple.sh.preprocessed.3
 diff <(bash sh/simple.sh.preprocessed.3) <(bash sh/simple.sh) > /dev/null
 check_test $?  
