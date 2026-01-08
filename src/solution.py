@@ -160,6 +160,7 @@ def step8_preprocess_print(ast):
 ## - (Michael) Polish comments
 ## - (Michael) Come up with hints for steps 6-8
 ## - (Michael) Make sure that the complete script corresponds to your slides
+## - (Michael) Come up with a couple scripts that we can propose to them to run their tool
 ## 
 
 def main():
