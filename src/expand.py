@@ -8,7 +8,7 @@ import sys
 import sh_expand.expand as sh_expand
 
 import parsing
-import analysis
+import preprocess
 
 
 def _env_to_expansion_state(sh_expand):
@@ -40,7 +40,7 @@ def expand_script(input_path, sh_expand):
 
     # Transformations on the expanded AST
     expanded_ast = [(node, "", -1, -1) for node in expanded_ast]
-    transformed_expanded_ast = analysis.prepend_commands(expanded_ast, "try", only_commands=["rm"])
+    transformed_expanded_ast = preprocess.prepend_commands(expanded_ast, "try", only_commands=["rm"])
     return parsing.ast_to_code(transformed_expanded_ast)
 
 

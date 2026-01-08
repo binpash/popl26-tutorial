@@ -1,5 +1,6 @@
 import itertools
 import os
+import shlex
 
 import shasta.ast_node as AST
 
@@ -15,8 +16,6 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
         stub_path = os.path.join(stub_dir, f"stub_{idx}")
         with open(stub_path, "w", encoding="utf-8") as handle:
             text = node.pretty() + "\n"
-            ## Whatever you do before executing this here is JIT
-            ## Goal: JIT expand using sh_expand, and then do sth for safety (if the command is rm run it with try, or if command is rm with first argument don't run it)
             handle.write(text)
         line_number = getattr(node, "line_number", -1)
         return AST.CommandNode(
@@ -84,7 +83,7 @@ def command_prepender(prefix_cmd, only_commands=None):
     tokens = shlex.split(prefix_cmd)
     if not tokens:
         return lambda node: None
-    prefix_args = [_string_to_argchars(token) for token in tokens]
+    prefix_args = [string_to_argchars(token) for token in tokens]
     only_commands = [cmd for cmd in (only_commands or []) if cmd]
 
     def _prepend_command_node(node, prefix_args):
