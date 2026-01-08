@@ -1,7 +1,7 @@
 # POPL'26 Shell Tutorial
 
 Usage
-- Scripts live in `src/`. Run them directly, e.g. `python3 src/analysis.py`
+- Scripts live in `src/`. The complete solution for all steps is `src/solution.py`. Run them directly, e.g. `python3 src/solution.py`
 
 Docker
 - Build: `docker build -t popl26-tutorial .`
