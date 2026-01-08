@@ -1,126 +1,14 @@
 import shasta.ast_node as AST
 import argparse
 import sys
-import itertools
 import os
 import shlex
 
 from ast_helper import *
 from feature_counter import feature_counter
 import parsing
+import preprocess
 import pure
-
-
-def _string_to_argchars(text):
-    return [AST.CArgChar(ord(ch)) for ch in text]
-
-def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
-    counter = itertools.count()
-
-    def stubber(node):
-        idx = next(counter)
-        stub_path = os.path.join(stub_dir, f"stub_{idx}")
-        with open(stub_path, "w", encoding="utf-8") as handle:
-            text = node.pretty() + "\n"
-            ## Whatever you do before executing this here is JIT
-            ## Goal: JIT expand using sh_expand, and then do sth for safety (if the command is rm run it with try, or if command is rm with first argument don't run it)
-            handle.write(text)
-        line_number = getattr(node, "line_number", -1)
-        return AST.CommandNode(
-            line_number=line_number,
-            assignments=[
-                *node.assignments, # Keep original assignments
-                AST.AssignNode(var="JIT_INPUT", val=_string_to_argchars(stub_path)),
-            ],
-            arguments=[
-                _string_to_argchars("."),
-                _string_to_argchars(jit_script),
-            ],
-            redir_list=[],
-        )
-    def replace(node):
-        match node:
-            case AST.Command() if pure.is_safe_to_expand(node):
-                return stubber(node)
-            case _:
-                return None
-
-    return replace
-
-def replace_with_cat(stub_dir="/tmp"):
-    counter = itertools.count()
-
-    def stubber(node):
-        idx = next(counter)
-        stub_path = os.path.join(stub_dir, f"cat_stub_{idx}")
-        with open(stub_path, "w", encoding="utf-8") as handle:
-            text = node.pretty() + "\n"
-            ## Whatever you do before executing this here is JIT
-            ## Goal: JIT expand using sh_expand, and then do sth for safety (if the command is rm run it with try, or if command is rm with first argument don't run it)
-            handle.write(text)
-        line_number = getattr(node, "line_number", -1)
-        return AST.CommandNode(
-            assignments=node.assignments,
-            line_number=line_number,
-            arguments=[
-                _string_to_argchars("cat"),
-                _string_to_argchars(stub_path)
-            ],
-            redir_list=[],
-        )
-    def replace(node):
-        match node:
-            case AST.Command() if pure.is_safe_to_expand(node):
-                return stubber(node)
-            case _:
-                return None
-
-    return replace
-
-
-def replace_safe_to_expand_subtrees(ast, stub_dir="/tmp"):
-    return walk_ast(ast, replace=replace_with_jit(stub_dir))
-
-def command_prepender(prefix_cmd, only_commands=None):
-    tokens = shlex.split(prefix_cmd)
-    if not tokens:
-        return lambda node: None
-    prefix_args = [_string_to_argchars(token) for token in tokens]
-    only_commands = [cmd for cmd in (only_commands or []) if cmd]
-
-    def _prepend_command_node(node, prefix_args):
-        assignments = [walk_ast_node(ass, replace=None) for ass in node.assignments]
-        arguments = [walk_ast_node(arg, replace=None) for arg in node.arguments]
-        redirs = [walk_ast_node(r, replace=None) for r in node.redir_list]
-        return AST.CommandNode(
-            arguments=prefix_args + arguments,
-            assignments=assignments,
-            redir_list=redirs,
-            **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
-        )
-
-    def replace(node):
-        match node:
-            case AST.CommandNode() | AST.Command():
-                if only_commands:
-                    if not node.arguments:
-                        return None
-                    cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED)
-                    cmd_name = cmd_name.strip("\"'") # Stripping quotes because sh_expand leaves them in
-                    if cmd_name not in only_commands:
-                        return None
-                return _prepend_command_node(node, prefix_args)
-            case _:
-                return None
-
-    return replace
-
-def prepend_commands(ast, prefix_cmd, only_commands=None):
-    return walk_ast(
-        ast,
-        replace=command_prepender(prefix_cmd, only_commands=only_commands),
-    )
-
 
 
 
@@ -222,7 +110,7 @@ def step5_safe_to_expand_subtrees(ast):
 ## commands are printed properly
 ## 
 def step6_preprocess_print(ast):
-    stubbed_ast = walk_ast(ast, replace=replace_with_cat("/tmp"))
+    stubbed_ast = walk_ast(ast, replace=preprocess.replace_with_cat("/tmp"))
     preprocessed_script = parsing.ast_to_code(stubbed_ast)
     print("Preprocessed script (just using cat to print commands):")
     print(preprocessed_script)
@@ -241,7 +129,7 @@ def step6_preprocess_print(ast):
 ## Inspect by running the transformed script and seeing if it runs properly
 ## 
 def step7_preprocess_print(ast):
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp", jit_script="src/jit_step5.sh"))
+    stubbed_ast = walk_ast(ast, replace=preprocess.replace_with_jit("/tmp", jit_script="src/jit_step5.sh"))
     preprocessed_script = parsing.ast_to_code(stubbed_ast)
     print("JIT-printed script:")
     print(preprocessed_script)
@@ -259,7 +147,7 @@ def step7_preprocess_print(ast):
 ## as the original one
 ## 
 def step8_preprocess_print(ast):
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp"))
+    stubbed_ast = walk_ast(ast, replace=preprocess.replace_with_jit("/tmp"))
     preprocessed_script = parsing.ast_to_code(stubbed_ast)
     print("JIT-expanded script):")
     print(preprocessed_script)
@@ -271,7 +159,7 @@ def step8_preprocess_print(ast):
 ## - (Michael) Decide what to cut for each step and what to provide
 ## - (Michael) Polish comments
 ## - (Michael) Come up with hints for steps 6-8
-## - (Michael) Make sure that the complete script corresponds to what you are talking about in the slides
+## - (Michael) Make sure that the complete script corresponds to your slides
 ## 
 
 def main():
@@ -307,6 +195,8 @@ def main():
     preprocessed_script = step6_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.1", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
+    print(f"Run {input_script}.preprocessed.1 and inspect whether it returns the commands {input_script} would run")
+    print()
 
     ## Step 7: Preprocess using the JIT
     preprocessed_script = step7_preprocess_print(original_ast)
@@ -317,7 +207,7 @@ def main():
     preprocessed_script = step8_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
-    print(f"Now run {input_script}.preprocessed.3 and confirm it produces the same output as {input_script}")
+    print(f"Run {input_script}.preprocessed.3 and confirm it produces the same output as {input_script}")
 
 if __name__ == "__main__":
     main()

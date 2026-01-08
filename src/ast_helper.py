@@ -4,6 +4,9 @@ import shasta.ast_node as AST
 ## Auxiliary functions for ASTs
 ##
 
+def string_to_argchars(text):
+    return [AST.CArgChar(ord(ch)) for ch in text]
+
 def walk_node(node):
     return node
 
