@@ -21,7 +21,7 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
         return AST.CommandNode(
             line_number=line_number,
             assignments=[
-                *node.assignments, # Keep original assignments
+                *(node.assignments if getattr(node, "assignments", None) else []), # Keep original assigments
                 AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)),
             ],
             arguments=[
@@ -52,7 +52,7 @@ def replace_with_cat(stub_dir="/tmp"):
             handle.write(text)
         line_number = getattr(node, "line_number", -1)
         return AST.CommandNode(
-            assignments=node.assignments,
+            assignments=node.assignments if getattr(node, "assignments", None) else [],
             line_number=line_number,
             arguments=[
                 string_to_argchars("cat"),
@@ -101,7 +101,7 @@ def command_prepender(prefix_cmd, only_commands=None):
         match node:
             case AST.CommandNode() | AST.Command():
                 if only_commands:
-                    if not node.arguments:
+                    if not getattr(node, "arguments", None):
                         return None
                     cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED)
                     cmd_name = cmd_name.strip("\"'") # Stripping quotes because sh_expand leaves them in
