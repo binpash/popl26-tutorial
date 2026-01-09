@@ -4,7 +4,7 @@ import itertools
 import sys
 import os
 
-from utils import * # type: ignore
+from utils import *  # type: ignore
 from shasta import ast_node as AST
 
 
@@ -19,15 +19,15 @@ from shasta import ast_node as AST
 ##
 
 
-
-
 def step1_parse_script(input_script):
     ast = list(parse_shell_to_asts(input_script))
     print("Script AST, pay attention to the different nodes:")
     print(ast)
     original_code = ast_to_code(walk_ast(ast, visit=lambda node: node))
     print()
-    print("Unparsed AST, pay attention to syntactic differences with the original script:")
+    print(
+        "Unparsed AST, pay attention to syntactic differences with the original script:"
+    )
     print(original_code)
     print()
     return ast
@@ -35,21 +35,12 @@ def step1_parse_script(input_script):
 
 ##
 ## Step 2:
-##   Build a generic walk_ast function that can apply a
-##   visitor and a transformer function to each node.
-##
-##   def walk_ast(ast, visit=None, replace=None):
-##
-##   It should take three arguments:
-##     1. The shasta AST
-##     2. An optional visit argument that is a function that will be applied on every node
-##     3. An optional replace argument that is a function that can replace a node
-##
-## Inspect if it works by printing each node (should be the same as print)
+##   Use our `walk_ast` visitor to print out every AST node.
 ##
 def step2_walk_print(ast):
     print("Printing the AST through walk")
     walk_ast(ast, visit=print)
+
 
 ##
 ## Step 3:
@@ -60,11 +51,14 @@ def step2_walk_print(ast):
 ## Inspect the syntactic differences of the unparsed and original script
 ##
 def step3_unparse(ast):
-    print("Unparsed AST, pay attention to syntactic differences with the original script:")
+    print(
+        "Unparsed AST, pay attention to syntactic differences with the original script:"
+    )
     unparsed_code = ast_to_code(walk_ast(ast, visit=lambda node: node))
     print(unparsed_code)
     print()
     return unparsed_code
+
 
 ##
 ## Step 4:
@@ -72,6 +66,7 @@ def step3_unparse(ast):
 ##
 ## Inspect by running on multiple scripts
 ##
+
 
 def feature_counter():
     features = [
@@ -156,14 +151,15 @@ def feature_counter():
 
     return (count_features, feature_counts)
 
+
 def step4_feature_counter(ast):
     (counter, counts) = feature_counter()
     walk_ast(ast, visit=counter)
-    print('Features:')
-    print('\n'.join(
-            f'- {feature} : {count}'
-            for feature, count in counts.items()
-        ), file=sys.stderr)
+    print("Features:")
+    print(
+        "\n".join(f"- {feature} : {count}" for feature, count in counts.items()),
+        file=sys.stderr,
+    )
     print()
 
 
@@ -175,6 +171,7 @@ def step4_feature_counter(ast):
 ##
 ## Run it on multiple scripts
 ##
+
 
 ## TODO: Fix this
 ## TODO: Michael make sure it corresponds to your slides
@@ -205,14 +202,16 @@ def is_safe_to_expand(node):
     walk_ast_node(node, visit=visit, replace=None)
     return not impure
 
+
 def get_safe_to_expand_subtrees(ast: Iterator[Parsed]):
     subtrees = []
 
     # only look at top-level nodes!
-    for (node, _, _, _) in ast:
+    for node, _, _, _ in ast:
         if is_safe_to_expand(node):
             subtrees.append(node)
     return subtrees
+
 
 def step5_safe_to_expand_subtrees(ast):
     safe_to_expand_subtrees = get_safe_to_expand_subtrees(ast)
@@ -220,6 +219,7 @@ def step5_safe_to_expand_subtrees(ast):
     for subtree in safe_to_expand_subtrees:
         print("-", subtree.pretty(), file=sys.stderr)
     print()
+
 
 ##
 ## Step 6:
@@ -233,6 +233,7 @@ def step5_safe_to_expand_subtrees(ast):
 ## Inspect by running the transformed script and seeing if all the
 ## commands are printed properly
 ##
+
 
 def replace_with_cat(stub_dir="/tmp"):
     counter = itertools.count()
@@ -249,12 +250,10 @@ def replace_with_cat(stub_dir="/tmp"):
         return AST.CommandNode(
             assignments=node.assignments if getattr(node, "assignments", None) else [],
             line_number=line_number,
-            arguments=[
-                string_to_argchars("cat"),
-                string_to_argchars(stub_path)
-            ],
+            arguments=[string_to_argchars("cat"), string_to_argchars(stub_path)],
             redir_list=[],
         )
+
     def replace(node):
         match node:
             case AST.Command() if is_safe_to_expand(node):
@@ -264,6 +263,7 @@ def replace_with_cat(stub_dir="/tmp"):
 
     return replace
 
+
 def step6_preprocess_print(ast):
     stubbed_ast = walk_ast(ast, replace=replace_with_cat("/tmp"))
     preprocessed_script = ast_to_code(stubbed_ast)
@@ -271,6 +271,7 @@ def step6_preprocess_print(ast):
     print(preprocessed_script)
     print()
     return preprocessed_script
+
 
 ##
 ## Step 7:
@@ -283,6 +284,7 @@ def step6_preprocess_print(ast):
 ##
 ## Inspect by running the transformed script and seeing if it runs properly
 ##
+
 
 def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
     counter = itertools.count()
@@ -297,7 +299,9 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
         return AST.CommandNode(
             line_number=line_number,
             assignments=[
-                *(node.assignments if getattr(node, "assignments", None) else []), # Keep original assigments
+                *(
+                    node.assignments if getattr(node, "assignments", None) else []
+                ),  # Keep original assigments
                 AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)),
             ],
             arguments=[
@@ -306,6 +310,7 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
             ],
             redir_list=[],
         )
+
     def replace(node):
         match node:
             case AST.Command() if is_safe_to_expand(node):
@@ -317,12 +322,15 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
 
 
 def step7_preprocess_print(ast):
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp", jit_script="src/jit_step5.sh"))
+    stubbed_ast = walk_ast(
+        ast, replace=replace_with_jit("/tmp", jit_script="src/jit_step5.sh")
+    )
     preprocessed_script = ast_to_code(stubbed_ast)
     print("JIT-printed script:")
     print(preprocessed_script)
     print()
     return preprocessed_script
+
 
 ##
 ## Step 8:
@@ -350,6 +358,7 @@ def step8_preprocess_print(ast):
 ## - (Michael) Make sure that the complete script corresponds to your slides
 ## - (Michael) Come up with a couple scripts that we can propose to them to run their tool
 ##
+
 
 def main():
     arg_parser = argparse.ArgumentParser(
@@ -384,7 +393,9 @@ def main():
     preprocessed_script = step6_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.1", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
-    print(f"Run {input_script}.preprocessed.1 and inspect whether it returns the commands {input_script} would run")
+    print(
+        f"Run {input_script}.preprocessed.1 and inspect whether it returns the commands {input_script} would run"
+    )
     print()
 
     ## Step 7: Preprocess using the JIT
@@ -396,7 +407,10 @@ def main():
     preprocessed_script = step8_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
-    print(f"Run {input_script}.preprocessed.3 and confirm it produces the same output as {input_script}")
+    print(
+        f"Run {input_script}.preprocessed.3 and confirm it produces the same output as {input_script}"
+    )
+
 
 if __name__ == "__main__":
     main()

@@ -6,9 +6,10 @@ import os
 import shlex
 import sys
 
-from utils import * # type: ignore
+from utils import *  # type: ignore
 from shasta import ast_node as AST
 import sh_expand.expand as sh_expand
+
 
 def command_prepender(prefix_cmd, only_commands=None):
     tokens = shlex.split(prefix_cmd)
@@ -25,7 +26,11 @@ def command_prepender(prefix_cmd, only_commands=None):
             arguments=prefix_args + arguments,
             assignments=assignments,
             redir_list=redirs,
-            **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
+            **{
+                k: v
+                for k, v in vars(node).items()
+                if k not in ("arguments", "assignments", "redir_list")
+            },
         )
 
     def replace(node):
@@ -34,8 +39,10 @@ def command_prepender(prefix_cmd, only_commands=None):
                 if only_commands:
                     if not hasattr(node, "arguments"):
                         return None
-                    cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED) # type: ignore
-                    cmd_name = cmd_name.strip("\"'") # Stripping quotes because sh_expand leaves them in
+                    cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED)  # type: ignore
+                    cmd_name = cmd_name.strip(
+                        "\"'"
+                    )  # Stripping quotes because sh_expand leaves them in
                     if cmd_name not in only_commands:
                         return None
                 return _prepend_command_node(node, prefix_args)
@@ -44,11 +51,13 @@ def command_prepender(prefix_cmd, only_commands=None):
 
     return replace
 
+
 def prepend_commands(ast, prefix_cmd, only_commands=None):
     return walk_ast(
         ast,
         replace=command_prepender(prefix_cmd, only_commands=only_commands),
     )
+
 
 def _env_to_expansion_state(sh_expand):
     variables = {k: [None, v] for k, v in os.environ.items()}
@@ -56,10 +65,11 @@ def _env_to_expansion_state(sh_expand):
     variables["-"] = [None, "u"]
     for key, value in os.environ.items():
         if key.startswith("JIT_POS_"):
-            suffix = key[len("JIT_POS_"):]
+            suffix = key[len("JIT_POS_") :]
             if suffix.isdigit():
                 variables[suffix] = [None, value]
     return sh_expand.ExpansionState(variables)
+
 
 def expand_script(input_path, sh_expand):
     ast_with_meta = list(parse_shell_to_asts(input_path))
@@ -68,28 +78,35 @@ def expand_script(input_path, sh_expand):
     expanded_ast = []
     for node in nodes:
         try:
-            node_copy = deepcopy(node) # We apply the expansions in-place
-            expanded_ast.append(
-                sh_expand.expand_command(node_copy, exp_state)
-            )
-        except (sh_expand.ImpureExpansion, sh_expand.StuckExpansion, sh_expand.Unimplemented) as exc:
+            node_copy = deepcopy(node)  # We apply the expansions in-place
+            expanded_ast.append(sh_expand.expand_command(node_copy, exp_state))
+        except (
+            sh_expand.ImpureExpansion,
+            sh_expand.StuckExpansion,
+            sh_expand.Unimplemented,
+        ) as exc:
             if isinstance(exc, sh_expand.StuckExpansion):
                 print(f"expand.py: skipping expansion: {exc}", file=sys.stderr)
             expanded_ast.append(node)
 
     # Transformations on the expanded AST
     expanded_ast = [(node, "", -1, -1) for node in expanded_ast]
-    transformed_expanded_ast = prepend_commands(expanded_ast, "try", only_commands=["rm"])
+    transformed_expanded_ast = prepend_commands(
+        expanded_ast, "try", only_commands=["rm"]
+    )
     return ast_to_code(transformed_expanded_ast)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Expand a shell script using sh-expand")
+    parser = argparse.ArgumentParser(
+        description="Expand a shell script using sh-expand"
+    )
     parser.add_argument("input_script", help="Path to the input shell script")
     args = parser.parse_args()
 
     output = expand_script(args.input_script, sh_expand)
     print(output)
+
 
 if __name__ == "__main__":
     main()
