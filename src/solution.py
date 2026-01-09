@@ -1,4 +1,5 @@
 import argparse
+from collections.abc import Iterator
 import itertools
 import sys
 import os
@@ -204,19 +205,13 @@ def is_safe_to_expand(node):
     walk_ast_node(node, visit=visit, replace=None)
     return not impure
 
-def get_safe_to_expand_subtrees(ast):
+def get_safe_to_expand_subtrees(ast: Iterator[Parsed]):
     subtrees = []
-    def replace(n):
-        match n:
-            case AST.ArgChar():
-                return None
-            case AST.AstNode() if is_safe_to_expand(n):
-                subtrees.append(n)
-                return n
-            case _:
-                return None
 
-    walk_ast(ast, replace=replace)
+    # only look at top-level nodes!
+    for (node, _, _, _) in ast:
+        if is_safe_to_expand(node):
+            subtrees.append(node)
     return subtrees
 
 def step5_safe_to_expand_subtrees(ast):

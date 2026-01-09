@@ -1,3 +1,5 @@
+from typing import Iterable, Iterator
+
 import libdash
 from shasta import json_to_ast
 from shasta import ast_node as AST
@@ -5,7 +7,8 @@ from shasta import ast_node as AST
 # Parses straight a shell script to an AST
 # through python without calling it as an executable
 INITIALIZE_LIBDASH = True
-def parse_shell_to_asts(input_script_path : str):
+type Parsed = tuple[AST.AstNode, str | None, int, int]
+def parse_shell_to_asts(input_script_path: str) -> Iterator[Parsed]:
     global INITIALIZE_LIBDASH
     new_ast_objects = libdash.parser.parse(input_script_path,init=INITIALIZE_LIBDASH)
     INITIALIZE_LIBDASH = False
@@ -26,10 +29,10 @@ def ast_to_code(ast):
 ## Auxiliary functions for ASTs
 ##
 
-def string_to_argchars(text):
+def string_to_argchars(text: str):
     return [AST.CArgChar(ord(ch)) for ch in text]
 
-def walk_ast(ast, visit=None, replace=None):
+def walk_ast(ast: Iterable[Parsed], visit=None, replace=None):
     return [walk_ast_node(node, visit=visit, replace=replace) for node, _, _, _ in ast]
 
 def walk_ast_node(node, visit=None, replace=None):
