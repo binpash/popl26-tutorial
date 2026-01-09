@@ -1,15 +1,54 @@
 #!/usr/bin/env python3
 
 import argparse
-import copy
+from copy import deepcopy
 import os
+import shlex
 import sys
 
+from utils import * # pyright: ignore[reportWildcardImportFromLibrary]
+from shasta import ast_node as AST
 import sh_expand.expand as sh_expand
 
-import parsing
-import preprocess
+def command_prepender(prefix_cmd, only_commands=None):
+    tokens = shlex.split(prefix_cmd)
+    if not tokens:
+        return lambda node: None
+    prefix_args = [string_to_argchars(token) for token in tokens]
+    only_commands = [cmd for cmd in (only_commands or []) if cmd]
 
+    def _prepend_command_node(node, prefix_args):
+        assignments = [walk_ast_node(ass, replace=None) for ass in node.assignments]
+        arguments = [walk_ast_node(arg, replace=None) for arg in node.arguments]
+        redirs = [walk_ast_node(r, replace=None) for r in node.redir_list]
+        return AST.CommandNode(
+            arguments=prefix_args + arguments,
+            assignments=assignments,
+            redir_list=redirs,
+            **{k: v for k, v in vars(node).items() if k not in ("arguments", "assignments", "redir_list")}
+        )
+
+    def replace(node):
+        match node:
+            case AST.CommandNode() | AST.Command():
+                if only_commands:
+                    if not getattr(node, "arguments", None):
+                        return None
+                    cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED)
+                    cmd_name = cmd_name.strip("\"'") # Stripping quotes because sh_expand leaves them in
+                    if cmd_name not in only_commands:
+                        return None
+                return _prepend_command_node(node, prefix_args)
+            case _:
+                return None
+
+    return replace
+
+def prepend_commands(ast, prefix_cmd, only_commands=None):
+    return walk_ast(
+        ast,
+        replace=command_prepender(prefix_cmd, only_commands=only_commands),
+    )
 
 def _env_to_expansion_state(sh_expand):
     variables = {k: [None, v] for k, v in os.environ.items()}
@@ -23,13 +62,13 @@ def _env_to_expansion_state(sh_expand):
     return sh_expand.ExpansionState(variables)
 
 def expand_script(input_path, sh_expand):
-    ast_with_meta = list(parsing.parse_shell_to_asts(input_path))
+    ast_with_meta = list(parse_shell_to_asts(input_path))
     nodes = [node for node, _, _, _ in ast_with_meta]
     exp_state = _env_to_expansion_state(sh_expand)
     expanded_ast = []
     for node in nodes:
         try:
-            node_copy = copy.deepcopy(node) # We apply the expansions in-place
+            node_copy = deepcopy(node) # We apply the expansions in-place
             expanded_ast.append(
                 sh_expand.expand_command(node_copy, exp_state)
             )
@@ -40,8 +79,8 @@ def expand_script(input_path, sh_expand):
 
     # Transformations on the expanded AST
     expanded_ast = [(node, "", -1, -1) for node in expanded_ast]
-    transformed_expanded_ast = preprocess.prepend_commands(expanded_ast, "try", only_commands=["rm"])
-    return parsing.ast_to_code(transformed_expanded_ast)
+    transformed_expanded_ast = prepend_commands(expanded_ast, "try", only_commands=["rm"])
+    return ast_to_code(transformed_expanded_ast)
 
 
 def main():
