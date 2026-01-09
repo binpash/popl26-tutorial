@@ -3,7 +3,7 @@ import itertools
 import sys
 import os
 
-from utils import * # pyright: ignore[reportWildcardImportFromLibrary]
+from utils import * # type: ignore
 from shasta import ast_node as AST
 
 
@@ -98,9 +98,6 @@ def feature_counter():
         "command",
     ]
     feature_counts = {name: 0 for name in features}
-    # Weird way to do this, but avoids global variable/reset logic
-    # TODO(mgree) put this on the closure, not the outer function
-    feature_counter.feature_counts = feature_counts
 
     def count_features(node):
         match node:
@@ -156,14 +153,15 @@ def feature_counter():
                 pass
         return node
 
-    return count_features
+    return (count_features, feature_counts)
 
 def step4_feature_counter(ast):
-    walk_ast(ast, visit=feature_counter())
+    (counter, counts) = feature_counter()
+    walk_ast(ast, visit=counter)
     print('Features:')
     print('\n'.join(
             f'- {feature} : {count}'
-            for feature, count in feature_counter.feature_counts.items()
+            for feature, count in counts.items()
         ), file=sys.stderr)
     print()
 

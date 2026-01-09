@@ -6,7 +6,7 @@ import os
 import shlex
 import sys
 
-from utils import * # pyright: ignore[reportWildcardImportFromLibrary]
+from utils import * # type: ignore
 from shasta import ast_node as AST
 import sh_expand.expand as sh_expand
 
@@ -32,9 +32,9 @@ def command_prepender(prefix_cmd, only_commands=None):
         match node:
             case AST.CommandNode() | AST.Command():
                 if only_commands:
-                    if not getattr(node, "arguments", None):
+                    if not hasattr(node, "arguments"):
                         return None
-                    cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED)
+                    cmd_name = AST.string_of_arg(node.arguments[0], quote_mode=AST.UNQUOTED) # type: ignore
                     cmd_name = cmd_name.strip("\"'") # Stripping quotes because sh_expand leaves them in
                     if cmd_name not in only_commands:
                         return None
