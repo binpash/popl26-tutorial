@@ -197,31 +197,32 @@ def is_safe_to_expand(node):
     if node is None:
         return True
 
-    impure = False
+    safe = True
 
-    def visit(n):
-        nonlocal impure
-        if impure:
+    def check_for_effects(n):
+        nonlocal safe
+        if not safe:
             return
 
         match n:
-            # bare assignments and functions
+            # bare assignments affect state; functions can't be safely expanded in advance
             case AST.AssignNode() | AST.DefunNode():
-                impure = True
-            # commands with assignments
+                safe = False
+            # commands with assignments affect state
+            # this underapproximates---special builtins like `export` and `set` can affect shell state, too!
             case AST.CommandNode() if len(n.assignments) > 0:
-                impure = True
+                safe = False
             # assignments in a word expansion
             case AST.VArgChar() if n.fmt == "Assign":
-                impure = True
+                safe = False
             # backquotes, arithmetic
             case AST.BArgChar() | AST.AArgChar():
-                impure = True
+                safe = False
             case _:
                 pass
 
-    walk_ast_node(node, visit=visit, replace=None)
-    return not impure
+    walk_ast_node(node, visit=check_for_effects)
+    return safe
 
 
 def step5_safe_to_toplevel_commands(ast):
@@ -252,18 +253,28 @@ def replace_with_cat(stub_dir="/tmp"):
     counter = itertools.count()
 
     def stubber(node):
+        # our stubs have two parts
+        #
+        #   - a file `.../cat_stub_IDX` where we hold the code we would have executed
+        #   - the new line of code we'll execute (here, `cat`ing the code in the stub file)
+
+        # stub file name
         idx = next(counter)
         stub_path = os.path.join(stub_dir, f"cat_stub_{idx}")
+
+        # generate stub file
         with open(stub_path, "w", encoding="utf-8") as handle:
             text = node.pretty() + "\n"
-            ## Whatever you do before executing this here is JIT
-            ## Goal: JIT expand using sh_expand, and then do sth for safety (if the command is rm run it with try, or if command is rm with first argument don't run it)
+            # Whatever code you write here is executed _at run time_
+            # We'll just write out the line we would have executed
             handle.write(text)
+
+        # replacement command
         line_number = getattr(node, "line_number", -1)
         return AST.CommandNode(
             assignments=node.assignments if getattr(node, "assignments", None) else [],
             line_number=line_number,
-            arguments=[string_to_argchars("cat"), string_to_argchars(stub_path)],
+            arguments=[string_to_argchars("cat"), string_to_argchars(stub_path)], # REPLACE arguments=[] # FILL IN HERE WITH a call to `cat` on the `stub_path`
             redir_list=[],
         )
 
@@ -369,7 +380,6 @@ def step8_preprocess_print(ast):
 
 ## TODOs:
 ## - (Michael) Decide what to cut for each step and what to provide
-## - (Michael) Polish comments
 ## - (Michael) Come up with hints for steps 6-8
 ## - (Michael) Make sure that the complete script corresponds to your slides
 ## - (Michael) Come up with a couple scripts that we can propose to them to run their tool
