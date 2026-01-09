@@ -27,7 +27,10 @@ check_script() {
 python3 src/solution.py sh/simple.sh || exit 1 # generates will create sh/simple.sh.preprocessed.3
 
 testing 1
+echo "CODE"
 cat sh/simple.sh.preprocessed.1
+echo "RUN"
+bash sh/simple.sh.preprocessed.1
 
 testing 2
 check_script sh/simple.sh.preprocessed.2

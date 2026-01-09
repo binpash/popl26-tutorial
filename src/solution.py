@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 from collections.abc import Iterator
 import itertools
@@ -185,20 +187,28 @@ def step4_feature_counter(ast):
 
 ##
 ## Step 5:
-##   Write an analysis that finds all subtrees that are safe to expand
+##   Identify top-level commands that are effect-free
 ##
-## Challenge: Think carefully about what parts of the AST are pure
+## We say a top-level command is effect-free if executing the command doesn't have side-effects on the shell state.
 ##
-## Run it on multiple scripts
+## We'll confine our notion of "shell state" to the variables in the shell, so a top-level command is effect free
+## when it does not set or change the values of variables. We can approximate this with the following syntactic restriction:
 ##
+##   - It has no assignments for function definitions.
+##   - Commands have no assignments in them.
+##   - The `${VAR=WORD}` parameter format is never used.
+##   - There are no arithmetic expansions.
+##
+## This list is not entirely sound---special builtins like `export` and `set` can affect shell state, as can `.` and `eval`.
+## But it's a good start, and let's not get bogged down.
 
 
-def is_safe_to_expand(node):
+
+def is_effect_free(node):
     if node is None:
         return True
 
     safe = True
-
     def check_for_effects(n):
         nonlocal safe
         if not safe:
@@ -215,8 +225,8 @@ def is_safe_to_expand(node):
             # assignments in a word expansion
             case AST.VArgChar() if n.fmt == "Assign":
                 safe = False
-            # backquotes, arithmetic
-            case AST.BArgChar() | AST.AArgChar():
+            # arithmetic, as in $(( X+= 1 ))
+            case AST.AArgChar():
                 safe = False
             case _:
                 pass
@@ -231,62 +241,63 @@ def step5_safe_to_toplevel_commands(ast):
     safe = []
     # only look at top-level nodes!
     for node, _, _, _ in ast:
-        if is_safe_to_expand(node): # REPLACE pass # FILL IN HERE WITH conditional printing of `is_safe_to_expand` nodes
+        if is_effect_free(node): # REPLACE pass # FILL IN HERE WITH conditional printing of `is_safe_to_expand` nodes
             print(f"- {node.pretty()}") # REMOVE
 
 
 ##
 ## Step 6:
-##   Write a transformation pass that saves all simple commands
-##   and pipelines, saving the AST in separate files, and
-##   replaces them with calls to `cat` and that file instead of
-##   running them
+##   Next, we'll implement a hybrid `set -x` mode, which runs effectful commands but not
+##   effect-free ones. (We want to leave in effectful commands so we have variable values.)
 ##
-## TODO: Add hints, this is hard
+##   To do this, we'll preprocess the script to stub out effect-free commands.
+##   We'll write the command we _would_ have run to a file, and we'll change the script to
+##   simply `cat` that stub (rather than running the command).
 ##
-## Inspect by running the transformed script and seeing if all the
-## commands are printed properly
+## There are a few moving parts here:
+##
+##   - We have to walk the AST and find effect free nodes.
+##   - We need to save those nodes as text in a known place.
+##   - We have to alter the AST to instead cat those saved nodes.
+##
+## We can do all this using `walk_ast`, `is_effect_free` and a bit of care.
 ##
 
 
 def replace_with_cat(stub_dir="/tmp"):
     counter = itertools.count()
 
-    def stubber(node):
-        # our stubs have two parts
-        #
-        #   - a file `.../cat_stub_IDX` where we hold the code we would have executed
-        #   - the new line of code we'll execute (here, `cat`ing the code in the stub file)
-
-        # stub file name
-        idx = next(counter)
-        stub_path = os.path.join(stub_dir, f"cat_stub_{idx}")
-
-        # generate stub file
-        with open(stub_path, "w", encoding="utf-8") as handle:
-            text = node.pretty() + "\n"
-            # Whatever code you write here is executed _at run time_
-            # We'll just write out the line we would have executed
-            handle.write(text)
-
-        # replacement command
-        line_number = getattr(node, "line_number", -1)
-        return AST.CommandNode(
-            assignments=node.assignments if getattr(node, "assignments", None) else [],
-            line_number=line_number,
-            arguments=[string_to_argchars("cat"), string_to_argchars(stub_path)], # REPLACE arguments=[] # FILL IN HERE WITH a call to `cat` on the `stub_path`
-            redir_list=[],
-        )
-
-    def replace(node):
+    def replace(node: AST.AstNode):
         match node:
-            case AST.Command() if is_safe_to_expand(node):
-                return stubber(node)
+            case AST.Command() if is_effect_free(node):
+                # our stubs have two parts
+                #
+                #   - a file `.../cat_stub_IDX` where we hold the code we would have executed
+                #   - the new line of code we'll execute (here, `cat`ing the code in the stub file)
+
+                # stub file name
+                idx = next(counter)
+                stub_path = os.path.join(stub_dir, f"cat_stub_{idx}")
+
+                # generate stub file
+                with open(stub_path, "w", encoding="utf-8") as handle:
+                    # Whatever code you write here is catted out _at run time_
+                    # We'll just write out the line we would have executed
+                    handle.write(node.pretty())
+                    handle.write("\n")
+
+                # replacement command
+                return AST.CommandNode(
+                    assignments = [], # guaranteed by safety to have no assignments
+                    line_number = getattr(node, "line_number", -1),
+                    arguments   = [string_to_argchars("cat"), string_to_argchars(stub_path)], # REPLACE arguments   = [] # FILL IN HERE WITH a call to `cat` on the `stub_path`
+                    redir_list  = [],
+                )
+
             case _:
                 return None
 
     return replace
-
 
 def step6_preprocess_print(ast):
     show_step("6: preprocess script to print commands")
@@ -300,48 +311,45 @@ def step6_preprocess_print(ast):
 
 ##
 ## Step 7:
-##   Create a JIT script that saves the shell state, prints out
-##   the command that it will run, and then restores the state and runs it
-##   Use the preprocessing that you built before to replace all
-##   simple commands and pipelines with this JIT
+##   Moving from stubs to JIT interposition is a matter of writing a more complex
+##   script as the stub. In general, we want a single such script, which will take
+##   stub information as input.
 ##
-## TODO: Hints
+##  We've given you such a script in `debug_jit.sh`. It:
 ##
-## Inspect by running the transformed script and seeing if it runs properly
+##    1. Prints out the command that would run on stderr, prepended with `+` like
+##       when running `set -x` in the shell
+##    2. Actually runs the command
 ##
-
+##  Notice that we don't do any real processing, so we don't need to save or restore
+##  shell state. We try to clean up after ourselves as best as possible, but we do
+##  step on the $__cmd_status variable.
+##
+## Once you've filled in the code, test it out to ensure that the program runs the same!
 
 def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
     counter = itertools.count()
 
-    def stubber(node):
-        idx = next(counter)
-        stub_path = os.path.join(stub_dir, f"stub_{idx}")
-        with open(
-            stub_path, "w", encoding="utf-8"
-        ) as handle:  # we write this as text... but better to store the pickled AST!
-            text = node.pretty() + "\n"
-            handle.write(text)
-        line_number = getattr(node, "line_number", -1)
-        return AST.CommandNode(
-            line_number=line_number,
-            assignments=[
-                *(
-                    node.assignments if getattr(node, "assignments", None) else []
-                ),  # Keep original assigments
-                AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)),
-            ],
-            arguments=[
-                string_to_argchars("."),
-                string_to_argchars(jit_script),
-            ],
-            redir_list=[],
-        )
-
-    def replace(node):
+    def replace(node: AST.AstNode):
         match node:
-            case AST.Command() if is_safe_to_expand(node):
-                return stubber(node)
+            case AST.Command() if is_effect_free(node):
+                idx = next(counter)
+                stub_path = os.path.join(stub_dir, f"stub_{idx}")
+
+                with open(stub_path, "w", encoding="utf-8") as handle:
+                    # we write this as text... but it's much better to store the pickled AST!
+                    handle.write(node.pretty())
+                    handle.write("\n")
+
+                # we want to run the command `JIT_INPUT=PATH_TO_STUB . PATH_TO_JIT_SCRIPT`
+                return AST.CommandNode(
+                    line_number = getattr(node, "line_number", -1),
+                    assignments = [ # no original assignments (safe to expand!)
+                        AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)), # REPLACE # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path`
+                    ],
+                    arguments   = [string_to_argchars("."), string_to_argchars(jit_script),], # REPLACE arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `jit_script`
+                    redir_list  = [],
+                )
             case _:
                 return None
 
@@ -360,10 +368,20 @@ def step7_preprocess_print(ast):
 
 ##
 ## Step 8:
-##   Modify the JIT script to first expand the simple command or pipeline
-##   then print out this expanded command, and then run it
+##   With the JIT framework in place, we can write a more realistic JIT that
+##   does more interposition by actually manipulating the script at runtime.
 ##
-## TODO: Hints
+## We'll try to expand command-lines with our own code, just in time. JIT
+## expansion is a key ingredient in PaSh's optimization pipeline. We don't have
+## time to show the optimization pipeline, so we'll show this part.
+##
+## There are a few key mechanisms here:
+##
+##   1. `jit.sh` can capture the shell state to
+##      a. hand it off to be expanded
+##      b. be restored at the end
+##   2. `expand.py` is the JIT expander, that reads stubbed scripts and
+##      writes out expanded versions
 ##
 ## Inspect by running the transformed script and seeing if it returns the same results
 ## as the original one
@@ -418,10 +436,6 @@ def main():
     preprocessed_script = step6_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.1", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
-    print(
-        f"Run {input_script}.preprocessed.1 and inspect whether it returns the commands {input_script} would run"
-    )
-    print()
 
     ## Step 7: Preprocess using the JIT
     preprocessed_script = step7_preprocess_print(original_ast)
@@ -432,9 +446,6 @@ def main():
     preprocessed_script = step8_preprocess_print(original_ast)
     with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
-    print(
-        f"Run {input_script}.preprocessed.3 and confirm it produces the same output as {input_script}"
-    )
 
 
 if __name__ == "__main__":

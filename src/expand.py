@@ -71,32 +71,6 @@ def _env_to_expansion_state(sh_expand):
     return sh_expand.ExpansionState(variables)
 
 
-def expand_script(input_path, sh_expand):
-    ast_with_meta = list(parse_shell_to_asts(input_path))
-    nodes = [node for node, _, _, _ in ast_with_meta]
-    exp_state = _env_to_expansion_state(sh_expand)
-    expanded_ast = []
-    for node in nodes:
-        try:
-            node_copy = deepcopy(node)  # We apply the expansions in-place
-            expanded_ast.append(sh_expand.expand_command(node_copy, exp_state))
-        except (
-            sh_expand.ImpureExpansion,
-            sh_expand.StuckExpansion,
-            sh_expand.Unimplemented,
-        ) as exc:
-            if isinstance(exc, sh_expand.StuckExpansion):
-                print(f"expand.py: skipping expansion: {exc}", file=sys.stderr)
-            expanded_ast.append(node)
-
-    # Transformations on the expanded AST
-    expanded_ast = [(node, "", -1, -1) for node in expanded_ast]
-    transformed_expanded_ast = prepend_commands(
-        expanded_ast, "try", only_commands=["rm"]
-    )
-    return ast_to_code(transformed_expanded_ast)
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Expand a shell script using sh-expand"
@@ -104,9 +78,28 @@ def main():
     parser.add_argument("input_script", help="Path to the input shell script")
     args = parser.parse_args()
 
-    output = expand_script(args.input_script, sh_expand)
-    print(output)
+    # reparse the stub
+    # if we had pickled the AST, we could just unpickle it here
+    ast = list(parse_shell_to_asts(args.input_script))
+    exp_state = _env_to_expansion_state(sh_expand)
+    expanded_ast = []
+    for (node, orig, start, end) in ast:
+        try:
+            node_copy = deepcopy(node)  # sh_expand works in-place
+            expanded_ast.append((sh_expand.expand_command(node_copy, exp_state), orig, start, end))
+        except (
+            sh_expand.ImpureExpansion,
+            sh_expand.StuckExpansion,
+            sh_expand.Unimplemented,
+        ) as exc:
+            if isinstance(exc, sh_expand.StuckExpansion):
+                print(f"expand.py: skipping expansion: {exc}", file=sys.stderr)
+            expanded_ast.append((node, orig, start, end))
 
+    # Transformations on the expanded AST
+    transformed_expanded_ast = prepend_commands(expanded_ast, "try", only_commands=["rm"])
+
+    print(ast_to_code(transformed_expanded_ast))
 
 if __name__ == "__main__":
     main()
