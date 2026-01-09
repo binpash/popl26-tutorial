@@ -8,6 +8,13 @@ from utils import *  # type: ignore
 from shasta import ast_node as AST
 
 
+def show_step(step: str):
+    print("-" * 80)
+    print("STEP {step}")
+    print("-" * 80)
+    print()
+
+
 ##
 ## Step 1:
 ##   Parse a script, print its AST, unparse it,
@@ -20,14 +27,14 @@ from shasta import ast_node as AST
 
 
 def step1_parse_script(input_script):
+    show_step("1: parsing")
+
     ast = list(parse_shell_to_asts(input_script))
     print("Script AST, pay attention to the different nodes:")
     print(ast)
     original_code = ast_to_code(walk_ast(ast, visit=lambda node: node))
     print()
-    print(
-        "Unparsed AST, pay attention to syntactic differences with the original script:"
-    )
+    print("Unparsed AST, note syntactic differences with the original script:")
     print(original_code)
     print()
     return ast
@@ -38,6 +45,8 @@ def step1_parse_script(input_script):
 ##   Use our `walk_ast` visitor to print out every AST node.
 ##
 def step2_walk_print(ast):
+    show_step("1: visiting")
+
     print("Printing the AST through walk")
     walk_ast(ast, visit=print)
 
@@ -51,9 +60,9 @@ def step2_walk_print(ast):
 ## Inspect the syntactic differences of the unparsed and original script
 ##
 def step3_unparse(ast):
-    print(
-        "Unparsed AST, pay attention to syntactic differences with the original script:"
-    )
+    show_step("3: unparsing")
+
+    print("Unparsed AST, note syntactic differences with the original script:")
     unparsed_code = ast_to_code(walk_ast(ast, visit=lambda node: node))
     print(unparsed_code)
     print()
@@ -66,7 +75,6 @@ def step3_unparse(ast):
 ##
 ## Inspect by running on multiple scripts
 ##
-
 
 def feature_counter():
     features = [
@@ -153,6 +161,8 @@ def feature_counter():
 
 
 def step4_feature_counter(ast):
+    show_step("4: feature counting")
+
     (counter, counts) = feature_counter()
     walk_ast(ast, visit=counter)
     print("Features:")
@@ -172,30 +182,29 @@ def step4_feature_counter(ast):
 ## Run it on multiple scripts
 ##
 
-
-## TODO: Fix this
-## TODO: Michael make sure it corresponds to your slides
 def is_safe_to_expand(node):
     if node is None:
         return True
-    impure = False
 
+    impure = False
     def visit(n):
         nonlocal impure
         if impure:
             return
+
         match n:
-            case AST.IfNode() | AST.WhileNode() | AST.ForNode() | AST.CaseNode():
+            # bare assignments and functions
+            case AST.AssignNode() | AST.DefunNode():
                 impure = True
+            # commands with assignments
+            case AST.CommandNode() if len(n.assignments) > 0:
+                impure = True
+            # assignments in a word expansion
             case AST.VArgChar() if n.fmt == "Assign":
                 impure = True
-            case AST.BArgChar():
+            # backquotes, arithmetic
+            case AST.BArgChar() | AST.AArgChar():
                 impure = True
-            case AST.AArgChar():
-                impure = True
-            case AST.AssignNode():
-                impure = True
-            ## TODO: If anything other than word return impure immediately
             case _:
                 pass
 
