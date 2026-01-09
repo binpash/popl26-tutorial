@@ -8,9 +8,11 @@ from utils import *  # type: ignore
 from shasta import ast_node as AST
 
 
-def show_step(step: str):
+def show_step(step: str, initial_blank=True):
+    if initial_blank:
+        print()
     print("-" * 80)
-    print("STEP {step}")
+    print(f"STEP {step}")
     print("-" * 80)
     print()
 
@@ -20,23 +22,27 @@ def show_step(step: str):
 ##   Parse a script, print its AST, unparse it,
 ##   and print the unparsed script.
 ##
-## Hint: Use libdash and figure out how to call it
+## You need `utils.parse_shell_to_asts` to parse the shell scripts.
 ##
-## Inspect results by checking AST
+## Note the structure of the `Parsed` type is a 4-tuple, comprising:
+##   - the actual AST
+##   - the original parsed text
+##   - the starting line number
+##   - the ending line number
+##
+## Look closely at the output to see the various node names.
 ##
 
 
 def step1_parse_script(input_script):
-    show_step("1: parsing")
+    show_step(
+        "1: parsing and printing the `Parsed` representation", initial_blank=False
+    )
 
-    ast = list(parse_shell_to_asts(input_script))
-    print("Script AST, pay attention to the different nodes:")
+    # set ast to a list of parsed commands using `parse_shell_to_asts`
+    ast = list(parse_shell_to_asts(input_script))  # REPLACE ast = 'FILL IN A CALL HERE'
     print(ast)
-    original_code = ast_to_code(walk_ast(ast, visit=lambda node: node))
-    print()
-    print("Unparsed AST, note syntactic differences with the original script:")
-    print(original_code)
-    print()
+
     return ast
 
 
@@ -44,37 +50,45 @@ def step1_parse_script(input_script):
 ## Step 2:
 ##   Use our `walk_ast` visitor to print out every AST node.
 ##
-def step2_walk_print(ast):
-    show_step("1: visiting")
 
-    print("Printing the AST through walk")
-    walk_ast(ast, visit=print)
+
+def step2_walk_print(ast):
+    show_step("1: visiting with walk_ast")
+
+    walk_ast(ast, visit=print)  # REPLACE # FILL IN A CALL HERE to `walk_ast` with `print` as the `visit` function
 
 
 ##
 ## Step 3:
 ##   Unparse the AST back to shell code
 ##
-## Hint: Check the AST class for useful method to unparse
+## You need `utils.ast_to_code` to unparse the AST.
+## You can either call `walk_ast` with an identity visitor or use a comprehension to pull out the parsed AST.
+##
+## Also note the unparsed AST for its syntactic differences.
+##
+## Bonus exercise: can you write a script that unparses significantly differently,
+##                 beyond just whitespace?
 ##
 ## Inspect the syntactic differences of the unparsed and original script
 ##
 def step3_unparse(ast):
-    show_step("3: unparsing")
+    show_step("3: unparse using `ast_to_code`")
 
-    print("Unparsed AST, note syntactic differences with the original script:")
-    unparsed_code = ast_to_code(walk_ast(ast, visit=lambda node: node))
+    # convert the AST back using `ast_to_code`
+    unparsed_code = ast_to_code([node for (node, _, _, _) in ast])  # REPLACE original_code = 'FILL IN A CALL HERE'
     print(unparsed_code)
-    print()
+
     return unparsed_code
 
 
 ##
 ## Step 4:
-##   Write a feature counter
+##   Use our simple feature counter to count different shell scripts.
 ##
-## Inspect by running on multiple scripts
+## Find a (POSIX) shell script you use frequently (or pull one from GitHub) and see what features it uses.
 ##
+
 
 def feature_counter():
     features = [
@@ -149,6 +163,7 @@ def feature_counter():
                 feature_counts["command"] += 1
                 if node.arguments:
                     cmd_name = AST.string_of_arg(node.arguments[0])
+                    # NB this is conservative---we're detecting static uses of these constructs
                     if cmd_name == "eval":
                         feature_counts["eval"] += 1
                     elif cmd_name == "alias":
@@ -161,17 +176,12 @@ def feature_counter():
 
 
 def step4_feature_counter(ast):
-    show_step("4: feature counting")
+    show_step("4: counting shell features")
 
     (counter, counts) = feature_counter()
-    walk_ast(ast, visit=counter)
-    print("Features:")
-    print(
-        "\n".join(f"- {feature} : {count}" for feature, count in counts.items()),
-        file=sys.stderr,
-    )
-    print()
-
+    walk_ast(ast, visit=counter)  # REPLACE # FILL IN HERE WITH CALL to `walk_ast` with the `counter` as `visit`
+    for (feature, count) in (counts.items()):  # REPLACE # FILL IN HERE WITH LOOP to print out the features (HINT: use the `dict.items` method)
+        print(f"- {feature}: {count}")  # REMOVE
 
 ##
 ## Step 5:
@@ -182,11 +192,13 @@ def step4_feature_counter(ast):
 ## Run it on multiple scripts
 ##
 
+
 def is_safe_to_expand(node):
     if node is None:
         return True
 
     impure = False
+
     def visit(n):
         nonlocal impure
         if impure:
@@ -212,28 +224,20 @@ def is_safe_to_expand(node):
     return not impure
 
 
-def get_safe_to_expand_subtrees(ast: Iterator[Parsed]):
-    subtrees = []
+def step5_safe_to_toplevel_commands(ast):
+    show_step("5: safe-to-expand top-level commands")
 
+    safe = []
     # only look at top-level nodes!
     for node, _, _, _ in ast:
-        if is_safe_to_expand(node):
-            subtrees.append(node)
-    return subtrees
-
-
-def step5_safe_to_expand_subtrees(ast):
-    safe_to_expand_subtrees = get_safe_to_expand_subtrees(ast)
-    print(f"Safe to expand subtrees:", file=sys.stderr)
-    for subtree in safe_to_expand_subtrees:
-        print("-", subtree.pretty(), file=sys.stderr)
-    print()
+        if is_safe_to_expand(node): # REPLACE pass # FILL IN HERE WITH conditional printing of `is_safe_to_expand` nodes
+            print(f"- {node.pretty()}") # REMOVE
 
 
 ##
 ## Step 6:
 ##   Write a transformation pass that saves all simple commands
-##   and pipelinesreplaces in the AST in separate files, and
+##   and pipelines, saving the AST in separate files, and
 ##   replaces them with calls to `cat` and that file instead of
 ##   running them
 ##
@@ -274,11 +278,12 @@ def replace_with_cat(stub_dir="/tmp"):
 
 
 def step6_preprocess_print(ast):
+    show_step("6: preprocess script to print commands")
+
     stubbed_ast = walk_ast(ast, replace=replace_with_cat("/tmp"))
     preprocessed_script = ast_to_code(stubbed_ast)
-    print("Preprocessed script (just using cat to print commands):")
     print(preprocessed_script)
-    print()
+
     return preprocessed_script
 
 
@@ -301,7 +306,9 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
     def stubber(node):
         idx = next(counter)
         stub_path = os.path.join(stub_dir, f"stub_{idx}")
-        with open(stub_path, "w", encoding="utf-8") as handle:
+        with open(
+            stub_path, "w", encoding="utf-8"
+        ) as handle:  # we write this as text... but better to store the pickled AST!
             text = node.pretty() + "\n"
             handle.write(text)
         line_number = getattr(node, "line_number", -1)
@@ -331,13 +338,12 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
 
 
 def step7_preprocess_print(ast):
-    stubbed_ast = walk_ast(
-        ast, replace=replace_with_jit("/tmp", jit_script="src/jit_step5.sh")
-    )
+    show_step("7: JIT stubs for debugging")
+
+    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp", jit_script="src/debug_jit.sh"))
     preprocessed_script = ast_to_code(stubbed_ast)
-    print("JIT-printed script:")
     print(preprocessed_script)
-    print()
+
     return preprocessed_script
 
 
@@ -352,11 +358,12 @@ def step7_preprocess_print(ast):
 ## as the original one
 ##
 def step8_preprocess_print(ast):
+    show_step("8: JIT expansion")
+
     stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp"))
     preprocessed_script = ast_to_code(stubbed_ast)
-    print("JIT-expanded script):")
     print(preprocessed_script)
-    print()
+
     return preprocessed_script
 
 
@@ -366,7 +373,6 @@ def step8_preprocess_print(ast):
 ## - (Michael) Come up with hints for steps 6-8
 ## - (Michael) Make sure that the complete script corresponds to your slides
 ## - (Michael) Come up with a couple scripts that we can propose to them to run their tool
-##
 
 
 def main():
@@ -394,7 +400,7 @@ def main():
     step4_feature_counter(original_ast)
 
     ## Step 5: Safe to expand subtrees
-    step5_safe_to_expand_subtrees(original_ast)
+    step5_safe_to_toplevel_commands(original_ast)
 
     ## Part 2
 

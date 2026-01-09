@@ -39,10 +39,25 @@ def string_to_argchars(text: str):
 
 
 def walk_ast(ast: Iterable[Parsed], visit=None, replace=None):
+    """
+    Visits a `Parsed` AST (i.e., a tuple of a shell AST, the original text, and line start and line end information).
+
+    :param ast: The parsed AST to visit.
+    :type ast: Iterable[Parsed]
+    :param visit: A visitor function (should not mutate the tree)
+    :param replace: A replacement function (returns the replacement node, should not mutate the tree)
+    """
     return [walk_ast_node(node, visit=visit, replace=replace) for node, _, _, _ in ast]
 
 
 def walk_ast_node(node, visit=None, replace=None):
+    """
+    Preorder visitor of shell AST nodes.
+
+    :param node: The node to visit
+    :param visit: A visitor function (should not mutate the tree)
+    :param replace: A replacement function (returns the replacement node, should not mutate the tree)
+    """
     if visit:
         visit(node)
     if replace:

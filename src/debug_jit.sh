@@ -21,8 +21,8 @@ for __arg in "$@"; do
 done
 
 __expanded=$__input".expanded"
-echo "Will execute this script"
-cat "$__input"
+printf "+ " >&2
+cat "$__input" >&2
 . "$__input"
 __cmd_status=$?
 
