@@ -42,7 +42,7 @@ def step1_parse_script(input_script):
     )
 
     # set ast to a list of parsed commands using `parse_shell_to_asts`
-    ast = list(parse_shell_to_asts(input_script))  # REPLACE ast = 'FILL IN A CALL HERE'
+    ast = 'FILL IN A CALL HERE'
     print(ast)
 
     return ast
@@ -57,7 +57,7 @@ def step1_parse_script(input_script):
 def step2_walk_print(ast):
     show_step("1: visiting with walk_ast")
 
-    walk_ast(ast, visit=print)  # REPLACE # FILL IN A CALL HERE to `walk_ast` with `print` as the `visit` function
+    # FILL IN A CALL HERE to `walk_ast` with `print` as the `visit` function
 
 
 ##
@@ -78,7 +78,7 @@ def step3_unparse(ast):
     show_step("3: unparse using `ast_to_code`")
 
     # convert the AST back using `ast_to_code`
-    unparsed_code = ast_to_code([node for (node, _, _, _) in ast])  # REPLACE unparsed_code = 'FILL IN A CALL HERE'
+    unparsed_code = 'FILL IN A CALL HERE'
     print(unparsed_code)
 
     return unparsed_code
@@ -181,9 +181,8 @@ def step4_feature_counter(ast):
     show_step("4: counting shell features")
 
     (counter, counts) = feature_counter()
-    walk_ast(ast, visit=counter)  # REPLACE # FILL IN HERE WITH CALL to `walk_ast` with the `counter` as `visit`
-    for (feature, count) in (counts.items()):  # REPLACE # FILL IN HERE WITH LOOP to print out the features (HINT: use the `dict.items` method)
-        print(f"- {feature}: {count}")  # REMOVE
+    # FILL IN HERE WITH CALL to `walk_ast` with the `counter` as `visit`
+    # FILL IN HERE WITH LOOP to print out the features (HINT: use the `dict.items` method)
 
 ##
 ## Step 5:
@@ -241,8 +240,7 @@ def step5_safe_to_toplevel_commands(ast):
     safe = []
     # only look at top-level nodes!
     for node, _, _, _ in ast:
-        if is_effect_free(node): # REPLACE pass # FILL IN HERE WITH conditional printing of `is_safe_to_expand` nodes
-            print(f"- {node.pretty()}") # REMOVE
+        pass # FILL IN HERE WITH conditional printing of `is_safe_to_expand` nodes
 
 
 ##
@@ -290,7 +288,7 @@ def replace_with_cat(stub_dir="/tmp"):
                 return AST.CommandNode(
                     assignments = [], # guaranteed by safety to have no assignments
                     line_number = getattr(node, "line_number", -1),
-                    arguments   = [string_to_argchars("cat"), string_to_argchars(stub_path)], # REPLACE arguments   = [] # FILL IN HERE WITH command arguments that will `cat` on the `stub_path`
+                    arguments   = [] # FILL IN HERE WITH command arguments that will `cat` on the `stub_path`
                     redir_list  = [],
                 )
 
@@ -345,9 +343,9 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
                 return AST.CommandNode(
                     line_number = getattr(node, "line_number", -1),
                     assignments = [ # no original assignments (safe to expand!)
-                        AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)), # REPLACE # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path`
+                        # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path`
                     ],
-                    arguments   = [string_to_argchars("."), string_to_argchars(jit_script),], # REPLACE arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `jit_script`
+                    arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `jit_script`
                     redir_list  = [],
                 )
             case _:
