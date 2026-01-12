@@ -23,7 +23,6 @@ def string_of_expanded_arg(arg: list[AST.ArgChar]):
     return s.strip("\"'") # stripping quotes because sh_expand leaves them in
 
 def command_prepender(exp_state: expand.ExpansionState, unsafe_commands=None):
-    try_prefix_args = [string_to_argchars("try")] # REMOVE
     unsafe_commands = list(unsafe_commands or [])
 
     def replace(node):
@@ -42,12 +41,7 @@ def command_prepender(exp_state: expand.ExpansionState, unsafe_commands=None):
                     #
                     # Only fill in this part once you have the rest of the JIT working.
                     #
-                    expand.expand_command(node, exp_state) # REPLACE pass # FILL IN OPTIMIZATION HERE
-# REMOVE
-                    cmd_name = string_of_expanded_arg(node.arguments[0]) # REMOVE
-                    # is it a known-safe command? # REMOVE
-                    if cmd_name not in unsafe_commands: # REMOVE
-                        return None # REMOVE
+                    pass # FILL IN OPTIMIZATION HERE
                 except (expand.ImpureExpansion, expand.StuckExpansion, expand.Unimplemented,) as exc:
                     # if expansion fails, we should be conservative and prepend
                     pass
@@ -57,12 +51,7 @@ def command_prepender(exp_state: expand.ExpansionState, unsafe_commands=None):
                 # with no arguments at all. In that case, we don't want to add a `try`!
                 #
                 # Hint: don't forget `string_to_argchars`
-                return AST.CommandNode( # REPLACE # return # FILL IN HERE with a new `CommandNode` that prepends the command with `try`
-                        arguments=try_prefix_args + node.arguments if len(node.arguments) > 0 else [], # REMOVE
-                        assignments=node.assignments, # REMOVE
-                        redir_list=node.redir_list, # REMOVE
-                        line_number=node.line_number # REMOVE
-                       ) # REMOVE
+                # return # FILL IN HERE with a new `CommandNode` that prepends the command with `try`
             case _:
                 return None
 

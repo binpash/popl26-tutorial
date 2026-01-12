@@ -34,7 +34,7 @@ def ast_to_code(ast: Iterable[AST.AstNode]) -> str:
 
     :param ast: Description
     """
-    return "\n".join([node.pretty() for node in ast]) # REPLACE # return # FILL IN HERE with each node in `ast` pretty-printed, compiled into a single newline-separated string
+    # return # FILL IN HERE with each node in `ast` pretty-printed, compiled into a single newline-separated string
 
 
 ##
@@ -115,28 +115,8 @@ def walk_ast_node(node, visit=None, replace=None):
                 **{k: v for k, v in vars(node).items() if k != "items"},
             )
         case AST.CommandNode():
-            # REPLACE # FILL IN HERE WITH the code for visiting a `CommandNode`
-            assignments = [ # REMOVE
-                walk_ast_node(ass, visit=visit, replace=replace) # REMOVE
-                for ass in node.assignments # REMOVE
-            ] # REMOVE
-            arguments = [ # REMOVE
-                walk_ast_node(arg, visit=visit, replace=replace) # REMOVE
-                for arg in node.arguments # REMOVE
-            ] # REMOVE
-            redirs = [ # REMOVE
-                walk_ast_node(r, visit=visit, replace=replace) for r in node.redir_list # REMOVE
-            ] # REMOVE
-            return AST.CommandNode( # REPLACE return # FILL IN HERE WITH the recomputed `CommandNode`
-                arguments=arguments, # REMOVE
-                assignments=assignments, # REMOVE
-                redir_list=redirs, # REMOVE
-                **{ # REMOVE
-                    k: v # REMOVE
-                    for k, v in vars(node).items() # REMOVE
-                    if k not in ("arguments", "assignments", "redir_list") # REMOVE
-                }, # REMOVE
-            ) # REMOVE
+            # FILL IN HERE WITH the code for visiting a `CommandNode`
+            return # FILL IN HERE WITH the recomputed `CommandNode`
         case AST.AssignNode():
             return AST.AssignNode(
                 val=walk_ast_node(node.val, visit=visit, replace=replace),

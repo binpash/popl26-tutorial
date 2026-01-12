@@ -42,7 +42,7 @@ def step1_parse_script(input_script):
     )
 
     # set ast to a list of parsed commands using `parse_shell_to_asts`
-    ast = 'FILL IN A CALL HERE'
+    ast = list(parse_shell_to_asts(input_script))  # REPLACE ast = 'FILL IN A CALL HERE'
     print(ast)
 
     return ast
@@ -57,8 +57,8 @@ def step1_parse_script(input_script):
 def step2_walk_print(ast):
     show_step("2: visiting with walk_ast")
 
-    # look in `utils.py` for more code for you to write!
-    # FILL IN A CALL HERE to `walk_ast` with `print` as the `visit` function
+    # REPLACE # look in `utils.py` for more code for you to write!
+    walk_ast(ast, visit=print)  # REPLACE # FILL IN A CALL HERE to `walk_ast` with `print` as the `visit` function
 
 
 ##
@@ -79,7 +79,7 @@ def step3_unparse(ast):
     show_step("3: unparse using `ast_to_code`")
 
     # convert the AST back using `ast_to_code`
-    unparsed_code = 'FILL IN A CALL HERE'
+    unparsed_code = ast_to_code([node for (node, _, _, _) in ast])  # REPLACE unparsed_code = 'FILL IN A CALL HERE'
     print(unparsed_code)
 
     return unparsed_code
@@ -182,8 +182,9 @@ def step4_feature_counter(ast):
     show_step("4: counting shell features")
 
     (counter, counts) = feature_counter()
-    # FILL IN HERE WITH CALL to `walk_ast` with the `counter` as `visit`
-    # FILL IN HERE WITH LOOP to print out the features (HINT: use the `dict.items` method)
+    walk_ast(ast, visit=counter)  # REPLACE # FILL IN HERE WITH CALL to `walk_ast` with the `counter` as `visit`
+    for (feature, count) in (counts.items()):  # REPLACE # FILL IN HERE WITH LOOP to print out the features (HINT: use the `dict.items` method)
+        print(f"- {feature}: {count}")  # REMOVE
 
 ##
 ## Step 5:
@@ -215,7 +216,17 @@ def is_effect_free(node):
             return
 
         match n:
-            # FILL IN HERE with the checks described in the comment above
+            # REPLACE # FILL IN HERE with the checks described in the comment above
+            case AST.AssignNode() | AST.DefunNode(): # REMOVE
+                safe = False # REMOVE
+            case AST.CommandNode() if len(n.assignments) > 0: # REMOVE
+                safe = False # REMOVE
+            case AST.VArgChar() if n.fmt == "Assign": # REMOVE
+                safe = False # REMOVE
+            case AST.AArgChar(): # REMOVE
+                safe = False # REMOVE
+            case _: # REMOVE
+                pass # REMOVE
 
     walk_ast_node(node, visit=check_for_effects)
     return safe
@@ -273,7 +284,12 @@ def replace_with_cat(stub_dir="/tmp"):
                     handle.write("\n")
 
                 # replacement command
-                # return # FILL IN HERE with a `CommandNode` that will `cat` the file at `stub_path` (hint: checkout `string_to_argchars`)
+                return AST.CommandNode( # REPLACE # return # FILL IN HERE with a `CommandNode` that will `cat` the file at `stub_path` (hint: checkout `string_to_argchars`)
+                    assignments = [], # guaranteed by safety to have no assignments # REMOVE
+                    line_number = getattr(node, "line_number", -1), # REMOVE
+                    arguments   = [string_to_argchars("cat"), string_to_argchars(stub_path)], # REMOVE
+                    redir_list  = [], # REMOVE
+                ) # REMOVE
 
             case _:
                 return None
@@ -326,9 +342,9 @@ def replace_with_debug_jit(stub_dir="/tmp"):
                 return AST.CommandNode(
                     line_number = getattr(node, "line_number", -1),
                     assignments = [ # no original assignments (safe to expand!)
-                        # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path` (hint: you need to build an `AssignNode`; use `string_of_argchars`)
+                        AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)), # REPLACE # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path` (hint: you need to build an `AssignNode`; use `string_of_argchars`)
                     ],
-                    arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
+                    arguments   = [string_to_argchars("."), string_to_argchars("SOLUTION/debug_jit.sh"),], # REPLACE arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
                     redir_list  = [],
                 )
             case _:
@@ -388,7 +404,7 @@ def replace_with_jit(stub_dir="/tmp"):
                     assignments = [ # no original assignments (safe to expand!)
                         AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)),
                     ],
-                    arguments   = [string_to_argchars("."), string_to_argchars("src/jit.sh"),],
+                    arguments   = [string_to_argchars("."), string_to_argchars("SOLUTION/jit.sh"),],
                     redir_list  = [],
                 )
             case _:

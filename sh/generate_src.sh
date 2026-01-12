@@ -12,17 +12,17 @@ then
     exit 2
 fi
     
-[ -d scaffold ] && rm -r scaffold
-mkdir scaffold
+[ -d src ] && rm -r src
+mkdir src
 
-for file in $(find src -type f)
+for file in $(find SOLUTION -type f)
 do
-    if [ "$file" = test.sh ]
+    if [ "$file" = test.sh ] 
     then
         continue
     fi
 
-    redacted=scaffold/"${file##src/}"
+    redacted=src/"${file##SOLUTION/}"
     sh/redact.sh "$file" >"$redacted"
     if [ -x "$file" ]
     then

@@ -30,7 +30,7 @@ declare -p >"$__saved_env"
 
 # !!! expand the script
 __expanded=$__input".expanded"
-python3 src/expand.py "$__input" "$BASH_VERSION" >"$__expanded"
+python3 SOLUTION/expand.py "$__input" "$BASH_VERSION" >"$__expanded"
 
 # !!! run the expanded script
 . "$__expanded"
