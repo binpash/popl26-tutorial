@@ -195,8 +195,8 @@ def step4_feature_counter(ast):
 ## We'll confine our notion of "shell state" to the variables in the shell, so a top-level command is effect free
 ## when it does not set or change the values of variables. We can approximate this with the following syntactic restriction:
 ##
-##   - It has no assignments for function definitions.
-##   - Commands have no assignments in them.
+##   - It has no assignments or function definitions.
+##   - Commands have no assignments in them (special builtins!).
 ##   - The `${VAR=WORD}` parameter format is never used.
 ##   - There are no arithmetic expansions.
 ##
@@ -216,21 +216,17 @@ def is_effect_free(node):
             return
 
         match n:
-            # bare assignments affect state; functions can't be safely expanded in advance
-            case AST.AssignNode() | AST.DefunNode():
-                safe = False
-            # commands with assignments affect state
-            # this underapproximates---special builtins like `export` and `set` can affect shell state, too!
-            case AST.CommandNode() if len(n.assignments) > 0:
-                safe = False
-            # assignments in a word expansion
-            case AST.VArgChar() if n.fmt == "Assign":
-                safe = False
-            # arithmetic, as in $(( X+= 1 ))
-            case AST.AArgChar():
-                safe = False
-            case _:
-                pass
+            # REPLACE # FILL IN HERE with the checks described in the comment above
+            case AST.AssignNode() | AST.DefunNode(): # REMOVE
+                safe = False # REMOVE
+            case AST.CommandNode() if len(n.assignments) > 0: # REMOVE
+                safe = False # REMOVE
+            case AST.VArgChar() if n.fmt == "Assign": # REMOVE
+                safe = False # REMOVE
+            case AST.AArgChar(): # REMOVE
+                safe = False # REMOVE
+            case _: # REMOVE
+                pass # REMOVE
 
     walk_ast_node(node, visit=check_for_effects)
     return safe
@@ -242,8 +238,8 @@ def step5_safe_to_toplevel_commands(ast):
     safe = []
     # only look at top-level nodes!
     for node, _, _, _ in ast:
-        if is_effect_free(node): # REPLACE pass # FILL IN HERE WITH conditional printing of `is_safe_to_expand` nodes
-            print(f"- {node.pretty()}") # REMOVE
+        if is_effect_free(node):
+            print(f"- {node.pretty()}")
 
 
 ##
@@ -429,6 +425,15 @@ def main():
     step4_feature_counter(original_ast)
 
     ## Step 5: Safe to expand subtrees
+
+    # tests for is_effect_free
+    ef_test = step1_parse_script("sh/effectful.sh")
+    for (node, _, _, _) in ef_test:
+        pretty = node.pretty()
+        safe = is_effect_free(node)
+        assert safe == ("I am not effectful" in pretty)
+    print("🎉 CONGRATULATIONS! YOU WROTE YOUR FIRST SHELL ANALYSIS!!!!! 🎉")
+
     step5_safe_to_toplevel_commands(original_ast)
 
     ## Part 2
