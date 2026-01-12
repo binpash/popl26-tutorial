@@ -282,7 +282,7 @@ def replace_with_cat(stub_dir="/tmp"):
 
     return replace
 
-def step6_preprocess_print(ast):
+def step6_stubs(ast):
     show_step("6: preprocess script to print commands")
 
     stubbed_ast = walk_ast(ast, replace=replace_with_cat("/tmp"))
@@ -446,7 +446,7 @@ def main():
     ## Part 2
 
     ## Step 6: Preprocess and print each command
-    preprocessed_script = step6_preprocess_print(original_ast)
+    preprocessed_script = step6_stubs(original_ast)
     with open(f"{input_script}.preprocessed.1", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
 
