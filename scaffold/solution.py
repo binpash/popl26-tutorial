@@ -194,8 +194,8 @@ def step4_feature_counter(ast):
 ## We'll confine our notion of "shell state" to the variables in the shell, so a top-level command is effect free
 ## when it does not set or change the values of variables. We can approximate this with the following syntactic restriction:
 ##
-##   - It has no assignments for function definitions.
-##   - Commands have no assignments in them.
+##   - It has no assignments or function definitions.
+##   - Commands have no assignments in them (special builtins!).
 ##   - The `${VAR=WORD}` parameter format is never used.
 ##   - There are no arithmetic expansions.
 ##
@@ -215,21 +215,7 @@ def is_effect_free(node):
             return
 
         match n:
-            # bare assignments affect state; functions can't be safely expanded in advance
-            case AST.AssignNode() | AST.DefunNode():
-                safe = False
-            # commands with assignments affect state
-            # this underapproximates---special builtins like `export` and `set` can affect shell state, too!
-            case AST.CommandNode() if len(n.assignments) > 0:
-                safe = False
-            # assignments in a word expansion
-            case AST.VArgChar() if n.fmt == "Assign":
-                safe = False
-            # arithmetic, as in $(( X+= 1 ))
-            case AST.AArgChar():
-                safe = False
-            case _:
-                pass
+            # FILL IN HERE with the checks described in the comment above
 
     walk_ast_node(node, visit=check_for_effects)
     return safe
@@ -241,7 +227,8 @@ def step5_safe_to_toplevel_commands(ast):
     safe = []
     # only look at top-level nodes!
     for node, _, _, _ in ast:
-        pass # FILL IN HERE WITH conditional printing of `is_safe_to_expand` nodes
+        if is_effect_free(node):
+            print(f"- {node.pretty()}")
 
 
 ##
@@ -286,12 +273,7 @@ def replace_with_cat(stub_dir="/tmp"):
                     handle.write("\n")
 
                 # replacement command
-                return AST.CommandNode(
-                    assignments = [], # guaranteed by safety to have no assignments
-                    line_number = getattr(node, "line_number", -1),
-                    arguments   = [] # FILL IN HERE WITH command arguments that will `cat` on the `stub_path`
-                    redir_list  = [],
-                )
+                # return # FILL IN HERE with a `CommandNode` that will `cat` the file at `stub_path` (hint: checkout `string_to_argchars`)
 
             case _:
                 return None
@@ -326,14 +308,14 @@ def step6_preprocess_print(ast):
 ##
 ## Once you've filled in the code, test it out to ensure that the program runs the same!
 
-def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
+def replace_with_debug_jit(stub_dir="/tmp"):
     counter = itertools.count()
 
     def replace(node: AST.AstNode):
         match node:
             case AST.Command() if is_effect_free(node):
                 idx = next(counter)
-                stub_path = os.path.join(stub_dir, f"stub_{idx}")
+                stub_path = os.path.join(stub_dir, f"debug_stub_{idx}")
 
                 with open(stub_path, "w", encoding="utf-8") as handle:
                     # we write this as text... but it's much better to store the pickled AST!
@@ -344,9 +326,9 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
                 return AST.CommandNode(
                     line_number = getattr(node, "line_number", -1),
                     assignments = [ # no original assignments (safe to expand!)
-                        # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path`
+                        # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path` (hint: you need to build an `AssignNode`; use `string_of_argchars`)
                     ],
-                    arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `jit_script`
+                    arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
                     redir_list  = [],
                 )
             case _:
@@ -358,7 +340,7 @@ def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
 def step7_preprocess_print(ast):
     show_step("7: JIT stubs for debugging")
 
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp", jit_script="src/debug_jit.sh"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_debug_jit("/tmp"))
     preprocessed_script = ast_to_code(stubbed_ast)
     print(preprocessed_script)
 
@@ -385,22 +367,43 @@ def step7_preprocess_print(ast):
 ## Inspect by running the transformed script and seeing if it returns the same results
 ## as the original one
 ##
+
+def replace_with_jit(stub_dir="/tmp"):
+    counter = itertools.count()
+
+    def replace(node: AST.AstNode):
+        match node:
+            case AST.CommandNode():
+                idx = next(counter)
+                stub_path = os.path.join(stub_dir, f"stub_{idx}")
+
+                with open(stub_path, "w", encoding="utf-8") as handle:
+                    # we write this as text... but it's much better to store the pickled AST!
+                    handle.write(node.pretty())
+                    handle.write("\n")
+
+                # we want to run the command `JIT_INPUT=PATH_TO_STUB . PATH_TO_JIT_SCRIPT`
+                return AST.CommandNode(
+                    line_number = getattr(node, "line_number", -1),
+                    assignments = [ # no original assignments (safe to expand!)
+                        AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)),
+                    ],
+                    arguments   = [string_to_argchars("."), string_to_argchars("src/jit.sh"),],
+                    redir_list  = [],
+                )
+            case _:
+                return None
+
+    return replace
+
 def step8_preprocess_print(ast):
     show_step("8: JIT expansion")
 
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_jit(stub_dir = "/tmp"))
     preprocessed_script = ast_to_code(stubbed_ast)
     print(preprocessed_script)
 
     return preprocessed_script
-
-
-## TODOs:
-## - (Michael) Decide what to cut for each step and what to provide
-## - (Michael) Come up with hints for steps 6-8
-## - (Michael) Make sure that the complete script corresponds to your slides
-## - (Michael) Come up with a couple scripts that we can propose to them to run their tool
-
 
 def main():
     arg_parser = argparse.ArgumentParser(
@@ -421,12 +424,21 @@ def main():
     step2_walk_print(original_ast)
 
     ## Step 3: Unparse
-    unparsed_code = step3_unparse(original_ast)
+    step3_unparse(original_ast)
 
     ## Step 4: Feature counter
     step4_feature_counter(original_ast)
 
     ## Step 5: Safe to expand subtrees
+
+    # tests for is_effect_free
+    ef_test = step1_parse_script("sh/effectful.sh")
+    for (node, _, _, _) in ef_test:
+        pretty = node.pretty()
+        safe = is_effect_free(node)
+        assert safe == ("I am not effectful" in pretty)
+    print("🎉 CONGRATULATIONS! YOU WROTE YOUR FIRST SHELL ANALYSIS!!!!! 🎉")
+
     step5_safe_to_toplevel_commands(original_ast)
 
     ## Part 2

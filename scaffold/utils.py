@@ -5,10 +5,10 @@ from shasta import json_to_ast
 from shasta import ast_node as AST
 
 # Parses straight a shell script to an AST
-# through python without calling it as an executable
+# through python bindings to dash
+# without calling dash as an executable
 INITIALIZE_LIBDASH = True
 type Parsed = tuple[AST.AstNode, str | None, int, int]
-
 
 def parse_shell_to_asts(input_script_path: str) -> Iterator[Parsed]:
     global INITIALIZE_LIBDASH
@@ -25,8 +25,16 @@ def parse_shell_to_asts(input_script_path: str) -> Iterator[Parsed]:
         yield (typed_ast, original_text, linno_before, linno_after)
 
 
-def ast_to_code(ast):
-    return "\n".join([node.pretty() for node in ast])
+def ast_to_code(ast: Iterable[AST.AstNode]) -> str:
+    """
+    Turns an AST into a single, pretty-printed valid shell script (as a `str`).
+
+    (Not the most memory efficient, but now we can print it for debugging and
+    also write it to a file.)
+
+    :param ast: Description
+    """
+    # return # FILL IN HERE with each node in `ast` pretty-printed, compiled into a single newline-separated string
 
 
 ##
@@ -34,7 +42,7 @@ def ast_to_code(ast):
 ##
 
 
-def string_to_argchars(text: str):
+def string_to_argchars(text: str) -> list[AST.ArgChar]:
     return [AST.CArgChar(ord(ch)) for ch in text]
 
 

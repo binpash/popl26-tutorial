@@ -284,12 +284,12 @@ def replace_with_cat(stub_dir="/tmp"):
                     handle.write("\n")
 
                 # replacement command
-                return AST.CommandNode(
-                    assignments = [], # guaranteed by safety to have no assignments
-                    line_number = getattr(node, "line_number", -1),
-                    arguments   = [string_to_argchars("cat"), string_to_argchars(stub_path)], # REPLACE arguments   = [] # FILL IN HERE WITH command arguments that will `cat` on the `stub_path`
-                    redir_list  = [],
-                )
+                return AST.CommandNode( # REPLACE # return # FILL IN HERE with a `CommandNode` that will `cat` the file at `stub_path` (hint: checkout `string_to_argchars`)
+                    assignments = [], # guaranteed by safety to have no assignments # REMOVE
+                    line_number = getattr(node, "line_number", -1), # REMOVE
+                    arguments   = [string_to_argchars("cat"), string_to_argchars(stub_path)], # REMOVE
+                    redir_list  = [], # REMOVE
+                ) # REMOVE
 
             case _:
                 return None
@@ -324,16 +324,14 @@ def step6_preprocess_print(ast):
 ##
 ## Once you've filled in the code, test it out to ensure that the program runs the same!
 
-def replace_with_jit(stub_dir="/tmp", jit_script=None):
-    assert jit_script is not None, "you must specify a jit_script"
-
+def replace_with_debug_jit(stub_dir="/tmp"):
     counter = itertools.count()
 
     def replace(node: AST.AstNode):
         match node:
             case AST.Command() if is_effect_free(node):
                 idx = next(counter)
-                stub_path = os.path.join(stub_dir, f"stub_{idx}")
+                stub_path = os.path.join(stub_dir, f"debug_stub_{idx}")
 
                 with open(stub_path, "w", encoding="utf-8") as handle:
                     # we write this as text... but it's much better to store the pickled AST!
@@ -344,9 +342,9 @@ def replace_with_jit(stub_dir="/tmp", jit_script=None):
                 return AST.CommandNode(
                     line_number = getattr(node, "line_number", -1),
                     assignments = [ # no original assignments (safe to expand!)
-                        AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)), # REPLACE # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path`
+                        AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)), # REPLACE # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path` (hint: you need to build an `AssignNode`; use `string_of_argchars`)
                     ],
-                    arguments   = [string_to_argchars("."), string_to_argchars(jit_script),], # REPLACE arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `jit_script`
+                    arguments   = [string_to_argchars("."), string_to_argchars("src/debug_jit.sh"),], # REPLACE arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
                     redir_list  = [],
                 )
             case _:
@@ -358,7 +356,7 @@ def replace_with_jit(stub_dir="/tmp", jit_script=None):
 def step7_preprocess_print(ast):
     show_step("7: JIT stubs for debugging")
 
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp", jit_script="src/debug_jit.sh"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_debug_jit("/tmp"))
     preprocessed_script = ast_to_code(stubbed_ast)
     print(preprocessed_script)
 
@@ -385,10 +383,39 @@ def step7_preprocess_print(ast):
 ## Inspect by running the transformed script and seeing if it returns the same results
 ## as the original one
 ##
+
+def replace_with_jit(stub_dir="/tmp"):
+    counter = itertools.count()
+
+    def replace(node: AST.AstNode):
+        match node:
+            case AST.CommandNode():
+                idx = next(counter)
+                stub_path = os.path.join(stub_dir, f"stub_{idx}")
+
+                with open(stub_path, "w", encoding="utf-8") as handle:
+                    # we write this as text... but it's much better to store the pickled AST!
+                    handle.write(node.pretty())
+                    handle.write("\n")
+
+                # we want to run the command `JIT_INPUT=PATH_TO_STUB . PATH_TO_JIT_SCRIPT`
+                return AST.CommandNode(
+                    line_number = getattr(node, "line_number", -1),
+                    assignments = [ # no original assignments (safe to expand!)
+                        AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)),
+                    ],
+                    arguments   = [string_to_argchars("."), string_to_argchars("src/jit.sh"),],
+                    redir_list  = [],
+                )
+            case _:
+                return None
+
+    return replace
+
 def step8_preprocess_print(ast):
     show_step("8: JIT expansion")
 
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit(stub_dir = "/tmp", jit_script= "src/jit.sh"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_jit(stub_dir = "/tmp"))
     preprocessed_script = ast_to_code(stubbed_ast)
     print(preprocessed_script)
 
@@ -413,7 +440,7 @@ def main():
     step2_walk_print(original_ast)
 
     ## Step 3: Unparse
-    unparsed_code = step3_unparse(original_ast)
+    step3_unparse(original_ast)
 
     ## Step 4: Feature counter
     step4_feature_counter(original_ast)
