@@ -57,6 +57,7 @@ def step1_parse_script(input_script):
 def step2_walk_print(ast):
     show_step("2: visiting with walk_ast")
 
+    # look in `utils.py` for more code for you to write!
     # FILL IN A CALL HERE to `walk_ast` with `print` as the `visit` function
 
 

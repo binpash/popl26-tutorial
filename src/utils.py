@@ -107,27 +107,28 @@ def walk_ast_node(node, visit=None, replace=None):
                 **{k: v for k, v in vars(node).items() if k != "items"},
             )
         case AST.CommandNode():
-            assignments = [
-                walk_ast_node(ass, visit=visit, replace=replace)
-                for ass in node.assignments
-            ]
-            arguments = [
-                walk_ast_node(arg, visit=visit, replace=replace)
-                for arg in node.arguments
-            ]
-            redirs = [
-                walk_ast_node(r, visit=visit, replace=replace) for r in node.redir_list
-            ]
-            return AST.CommandNode(
-                arguments=arguments,
-                assignments=assignments,
-                redir_list=redirs,
-                **{
-                    k: v
-                    for k, v in vars(node).items()
-                    if k not in ("arguments", "assignments", "redir_list")
-                },
-            )
+            # REPLACE # FILL IN HERE WITH the code for visiting a `CommandNode`
+            assignments = [ # REMOVE
+                walk_ast_node(ass, visit=visit, replace=replace) # REMOVE
+                for ass in node.assignments # REMOVE
+            ] # REMOVE
+            arguments = [ # REMOVE
+                walk_ast_node(arg, visit=visit, replace=replace) # REMOVE
+                for arg in node.arguments # REMOVE
+            ] # REMOVE
+            redirs = [ # REMOVE
+                walk_ast_node(r, visit=visit, replace=replace) for r in node.redir_list # REMOVE
+            ] # REMOVE
+            return AST.CommandNode( # REPLACE return # FILL IN HERE WITH the recomputed `CommandNode`
+                arguments=arguments, # REMOVE
+                assignments=assignments, # REMOVE
+                redir_list=redirs, # REMOVE
+                **{ # REMOVE
+                    k: v # REMOVE
+                    for k, v in vars(node).items() # REMOVE
+                    if k not in ("arguments", "assignments", "redir_list") # REMOVE
+                }, # REMOVE
+            ) # REMOVE
         case AST.AssignNode():
             return AST.AssignNode(
                 val=walk_ast_node(node.val, visit=visit, replace=replace),
