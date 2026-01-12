@@ -235,7 +235,7 @@ def is_effect_free(node):
     return safe
 
 
-def step5_safe_to_toplevel_commands(ast):
+def step5_effect_free(ast):
     show_step("5: safe-to-expand top-level commands")
 
     safe = []
@@ -458,7 +458,7 @@ def main():
         assert safe == ("I am not effectful" in pretty)
     print("🎉 CONGRATULATIONS! YOU WROTE YOUR FIRST SHELL ANALYSIS!!!!! 🎉")
 
-    step5_safe_to_toplevel_commands(original_ast)
+    step5_effect_free(original_ast)
 
     ## Part 2
 
