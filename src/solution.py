@@ -339,7 +339,7 @@ def replace_with_debug_jit(stub_dir="/tmp"):
     return replace
 
 
-def step7_preprocess_print(ast):
+def step7_debug_jit(ast):
     show_step("7: JIT stubs for debugging")
 
     stubbed_ast = walk_ast(ast, replace=replace_with_debug_jit("/tmp"))
@@ -398,7 +398,7 @@ def replace_with_jit(stub_dir="/tmp"):
 
     return replace
 
-def step8_preprocess_print(ast):
+def step8_try_unsafe(ast):
     show_step("8: JIT expansion")
 
     stubbed_ast = walk_ast(ast, replace=replace_with_jit(stub_dir = "/tmp"))
@@ -451,12 +451,12 @@ def main():
         print(preprocessed_script, file=out_file)
 
     ## Step 7: Preprocess using the JIT
-    preprocessed_script = step7_preprocess_print(original_ast)
+    preprocessed_script = step7_debug_jit(original_ast)
     with open(f"{input_script}.preprocessed.2", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
 
     ## Step 8: Preprocess using the JIT and expand before executing
-    preprocessed_script = step8_preprocess_print(original_ast)
+    preprocessed_script = step8_try_unsafe(original_ast)
     with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
         print(preprocessed_script, file=out_file)
 
