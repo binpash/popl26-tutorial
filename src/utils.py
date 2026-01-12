@@ -42,7 +42,7 @@ def ast_to_code(ast: Iterable[AST.AstNode]) -> str:
 ##
 
 
-def string_to_argchars(text: str):
+def string_to_argchars(text: str) -> list[AST.ArgChar]:
     return [AST.CArgChar(ord(ch)) for ch in text]
 
 

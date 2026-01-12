@@ -21,8 +21,10 @@ RUN apt-get update \
         autoconf \
         automake \
         libtool \
-    && rm -rf /var/lib/apt/lists/*
-
+        nano \
+        vim \
+        emacs
+        
 COPY requirements.txt /app/requirements.txt
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:/app/bin:$PATH"

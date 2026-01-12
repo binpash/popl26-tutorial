@@ -12,11 +12,14 @@ if [ -z "$__input" ] || [ ! -f "$__input" ]; then
 fi
 
 # save all current variables
-__saved_sets="$(set | grep '^[A-Za-z_][A-Za-z0-9_]*=[A-Za-z0-9_./-]*$' | grep -vE "EUID|PPID|UID")"
+__saved_sets="$(set | grep '^[A-Za-z_][A-Za-z0-9_]*=.*$' | grep -vE "EUID|PPID|UID")"
 
 # mark all variables as exported (so the expander can see them)
-__exported_vars="$(echo "$__saved_sets" | sed 's/^/export /')"
-eval "$__exported_vars"
+for asgn in __saved_sets
+do
+  var="${asgn%%=*}"
+  export "$var"
+done
 
 # save positional arguments in special JIT_POS_ positional variables
 export JIT_POS_0="$0"
@@ -31,21 +34,16 @@ done
 
 # !!! expand the script
 __expanded=$__input".expanded"
-python3 src/expand.py "$__input" > "$__expanded"
+python3 src/expand.py "$__input" >"$__expanded"
 
 # !!! run the expanded script
 . "$__expanded"
 __cmd_status=$?
 
-##############################
-# Restore previous shell state
+#################################
+# Try to clean up after ourselves
 
-# clear extra exports
-__unexported_vars="$(echo "$__saved_sets" | sed 's/^/unset /' | sed 's/=.*//')"
-eval "$__unexported_vars"
-
-# restore as not exported
-eval "$__saved_sets"
+# would be nice to un-export... but not for now
 
 # unset JIT_POS_ positional arguments
 __idx=1
