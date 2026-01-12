@@ -25,8 +25,16 @@ def parse_shell_to_asts(input_script_path: str) -> Iterator[Parsed]:
         yield (typed_ast, original_text, linno_before, linno_after)
 
 
-def ast_to_code(ast):
-    return "\n".join([node.pretty() for node in ast])
+def ast_to_code(ast: Iterable[AST.AstNode]) -> str:
+    """
+    Turns an AST into a single, pretty-printed valid shell script (as a `str`).
+
+    (Not the most memory efficient, but now we can print it for debugging and
+    also write it to a file.)
+
+    :param ast: Description
+    """
+    return "\n".join([node.pretty() for node in ast]) # REPLACE # return # FILL IN HERE with each node in `ast` pretty-printed, compiled into a single newline-separated string
 
 
 ##
