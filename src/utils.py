@@ -5,10 +5,10 @@ from shasta import json_to_ast
 from shasta import ast_node as AST
 
 # Parses straight a shell script to an AST
-# through python without calling it as an executable
+# through python bindings to dash
+# without calling dash as an executable
 INITIALIZE_LIBDASH = True
 type Parsed = tuple[AST.AstNode, str | None, int, int]
-
 
 def parse_shell_to_asts(input_script_path: str) -> Iterator[Parsed]:
     global INITIALIZE_LIBDASH
