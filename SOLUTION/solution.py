@@ -178,7 +178,7 @@ def feature_counter():
     return (count_features, feature_counts)
 
 
-def step4_feature_counter(ast):
+def step4_subshells(ast):
     show_step("4: counting shell features")
 
     (counter, counts) = feature_counter()
@@ -195,14 +195,17 @@ def step4_feature_counter(ast):
 ## We'll confine our notion of "shell state" to the variables in the shell, so a top-level command is effect free
 ## when it does not set or change the values of variables. We can approximate this with the following syntactic restriction:
 ##
-##   - It has no assignments or function definitions.
-##   - Commands have no assignments in them (special builtins!).
-##   - The `${VAR=WORD}` parameter format is never used.
+##   - It has no function definitions.
+##   - Commands have no assignments in them. (`VAR=VAL cmd` usually won't affect the environment---unless `cmd` is a special builtin, like `set`.)
+##   - The `${VAR=WORD}` and `${VAR:=WORD}` parameter formats are never used.
 ##   - There are no arithmetic expansions.
+##
+## Tip: if you're not sure what AST nodes correspond to a shell feature, create a custom file with just the code you're interested
+## in, and then print the AST (unprettily).
+##
 ##
 ## This list is not entirely sound---special builtins like `export` and `set` can affect shell state, as can `.` and `eval`.
 ## But it's a good start, and let's not get bogged down.
-
 
 
 def is_effect_free(node):
@@ -280,7 +283,7 @@ def replace_with_cat(stub_dir="/tmp"):
                 with open(stub_path, "w", encoding="utf-8") as handle:
                     # Whatever code you write here is catted out _at run time_
                     # We'll just write out the line we would have executed
-                    handle.write(node.pretty()) # REPLACE handle.write("Fill in with the part of the script that will be replaced") 
+                    handle.write(node.pretty()) # REPLACE handle.write("FILL IN HERE with the text of the script being replaced")
                     handle.write("\n")
 
                 # replacement command
@@ -443,7 +446,7 @@ def main():
     step3_unparse(original_ast)
 
     ## Step 4: Feature counter
-    step4_feature_counter(original_ast)
+    step4_subshells(original_ast)
 
     ## Step 5: Safe to expand subtrees
 
