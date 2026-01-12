@@ -280,7 +280,7 @@ def replace_with_cat(stub_dir="/tmp"):
                 with open(stub_path, "w", encoding="utf-8") as handle:
                     # Whatever code you write here is catted out _at run time_
                     # We'll just write out the line we would have executed
-                    handle.write(node.pretty())
+                    handle.write(node.pretty()) # REPLACE handle.write("Fill in with the part of the script that will be replaced") 
                     handle.write("\n")
 
                 # replacement command
