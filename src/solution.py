@@ -324,7 +324,9 @@ def step6_preprocess_print(ast):
 ##
 ## Once you've filled in the code, test it out to ensure that the program runs the same!
 
-def replace_with_jit(stub_dir="/tmp", jit_script="src/jit.sh"):
+def replace_with_jit(stub_dir="/tmp", jit_script=None):
+    assert jit_script is not None, "you must specify a jit_script"
+
     counter = itertools.count()
 
     def replace(node: AST.AstNode):
@@ -386,19 +388,11 @@ def step7_preprocess_print(ast):
 def step8_preprocess_print(ast):
     show_step("8: JIT expansion")
 
-    stubbed_ast = walk_ast(ast, replace=replace_with_jit("/tmp"))
+    stubbed_ast = walk_ast(ast, replace=replace_with_jit(stub_dir = "/tmp", jit_script= "src/jit.sh"))
     preprocessed_script = ast_to_code(stubbed_ast)
     print(preprocessed_script)
 
     return preprocessed_script
-
-
-## TODOs:
-## - (Michael) Decide what to cut for each step and what to provide
-## - (Michael) Come up with hints for steps 6-8
-## - (Michael) Make sure that the complete script corresponds to your slides
-## - (Michael) Come up with a couple scripts that we can propose to them to run their tool
-
 
 def main():
     arg_parser = argparse.ArgumentParser(
