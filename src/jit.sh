@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+
+# NB we are using bash explicitly for the JIT; it gives us a correct
 
 ######################
 # Save the shell state
@@ -11,30 +13,24 @@ if [ -z "$__input" ] || [ ! -f "$__input" ]; then
   exit 2
 fi
 
-# save all current variables
-__saved_sets="$(set | grep '^[A-Za-z_][A-Za-z0-9_]*=.*$' | grep -vE "EUID|PPID|UID")"
-
-# mark all variables as exported (so the expander can see them)
-for asgn in __saved_sets
-do
-  var="${asgn%%=*}"
-  export "$var"
-done
-
-# save positional arguments in special JIT_POS_ positional variables
-export JIT_POS_0="$0"
+# make JIT_POS variables to capture positional variables
+JIT_POS_0="$0"
 __idx=1
 for __arg in "$@"; do
-  eval "export JIT_POS_${__idx}=\"\$__arg\""
+  eval "JIT_POS_${__idx}=\"\$__arg\""
   __idx=$((__idx + 1))
 done
+
+# save all current variables
+__saved_env="$JIT_INPUT".env
+declare -p >"$__saved_env"
 
 ####################
 # Actually interpose
 
 # !!! expand the script
 __expanded=$__input".expanded"
-python3 src/expand.py "$__input" >"$__expanded"
+python3 src/expand.py "$__input" "$BASH_VERSION" >"$__expanded"
 
 # !!! run the expanded script
 . "$__expanded"
@@ -46,6 +42,7 @@ __cmd_status=$?
 # would be nice to un-export... but not for now
 
 # unset JIT_POS_ positional arguments
+unset JIT_POS_0
 __idx=1
 for __arg in "$@"; do
   eval "unset JIT_POS_${__idx}"
@@ -53,7 +50,7 @@ for __arg in "$@"; do
 done
 
 # hide the evidence
-unset __saved_sets __expanded __input __exported_vars __unexported_vars __idx __arg
+unset __saved_env __expanded __input __idx __arg
 
 # exit with the correct status
 (exit "$__cmd_status")

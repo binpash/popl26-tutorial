@@ -331,7 +331,7 @@ def replace_with_debug_jit(stub_dir="/tmp"):
         match node:
             case AST.Command() if is_effect_free(node):
                 idx = next(counter)
-                stub_path = os.path.join(stub_dir, f"debug_stub_{idx}")
+                stub_path = os.path.join(stub_dir, f"stub_{idx}")
 
                 with open(stub_path, "w", encoding="utf-8") as handle:
                     # we write this as text... but it's much better to store the pickled AST!
