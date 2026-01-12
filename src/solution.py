@@ -214,8 +214,7 @@ def is_effect_free(node):
         if not safe:
             return
 
-        match n:
-            # FILL IN HERE with the checks described in the comment above
+        # FILL IN HERE with the checks described in the comment above (use a match!)
 
     walk_ast_node(node, visit=check_for_effects)
     return safe
@@ -328,7 +327,7 @@ def replace_with_debug_jit(stub_dir="/tmp"):
                     assignments = [ # no original assignments (safe to expand!)
                         # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path` (hint: you need to build an `AssignNode`; use `string_of_argchars`)
                     ],
-                    arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
+                    arguments   = [], # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
                     redir_list  = [],
                 )
             case _:

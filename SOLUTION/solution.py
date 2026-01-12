@@ -215,9 +215,9 @@ def is_effect_free(node):
         if not safe:
             return
 
-        match n:
-            # REPLACE # FILL IN HERE with the checks described in the comment above
-            case AST.AssignNode() | AST.DefunNode(): # REMOVE
+        match n: # REPLACE # FILL IN HERE with the checks described in the comment above (use a match!)
+            # REMOVE
+            case AST.DefunNode(): # REMOVE
                 safe = False # REMOVE
             case AST.CommandNode() if len(n.assignments) > 0: # REMOVE
                 safe = False # REMOVE
@@ -344,7 +344,7 @@ def replace_with_debug_jit(stub_dir="/tmp"):
                     assignments = [ # no original assignments (safe to expand!)
                         AST.AssignNode(var="JIT_INPUT", val=string_to_argchars(stub_path)), # REPLACE # FILL IN HERE WITH an assignment of `JIT_INPUT` to the `stub_path` (hint: you need to build an `AssignNode`; use `string_of_argchars`)
                     ],
-                    arguments   = [string_to_argchars("."), string_to_argchars("SOLUTION/debug_jit.sh"),], # REPLACE arguments   = [] # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
+                    arguments   = [string_to_argchars("."), string_to_argchars("SOLUTION/debug_jit.sh"),], # REPLACE arguments   = [], # FILL IN HERE WITH sourcing (via `.`) the `src/debug_jit.sh` JIT script (hint: use `string_of_argchars`)
                     redir_list  = [],
                 )
             case _:

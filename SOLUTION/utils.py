@@ -34,7 +34,7 @@ def ast_to_code(ast: Iterable[AST.AstNode]) -> str:
 
     :param ast: Description
     """
-    return "\n".join([node.pretty() for node in ast]) # REPLACE # return # FILL IN HERE with each node in `ast` pretty-printed, compiled into a single newline-separated string
+    return "\n".join([node.pretty() for node in ast]) # REPLACE return # FILL IN HERE with each node in `ast` pretty-printed, compiled into a single newline-separated string
 
 
 ##
