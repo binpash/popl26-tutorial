@@ -429,8 +429,11 @@ def main():
     ## Step 8: Preprocess using the JIT and expand before executing
     # REPLACE # Uncomment when you get to step 8
     preprocessed_script = step8_try_unsafe(original_ast) # COMMENT
-    with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file: # COMMENT
+    with open(f"{input_script}.safe", "w", encoding="utf-8") as out_file: # COMMENT
         print(preprocessed_script, file=out_file) # COMMENT
+    print() # COMMENT
+    print(f"The transformed safer to run script is stored in: {input_script}.safe") # COMMENT
+    print() # COMMENT
 
 
 if __name__ == "__main__":
