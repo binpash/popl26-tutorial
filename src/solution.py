@@ -87,103 +87,32 @@ def step3_unparse(ast):
 
 ##
 ## Step 4:
-##   Use our simple feature counter to count different shell scripts.
+##   Create a simple analysis that returns the number of subshells a script will create:
+##   Four ways to create a subshell:
+##   - Asynchronous commands `&`
+##   - Pipes `|`
+##   - Subshells `(...)`
+##   - Command Substitution `$(...)`
 ##
-## Find a (POSIX) shell script you use frequently (or pull one from GitHub) and see what features it uses.
+## Find a (POSIX) shell script you use frequently (or pull one from binpash/koala) and see how many it creates.
 ##
 
-
-def feature_counter():
-    features = [
-        "background",
-        "subshell",
-        "home_tilde",
-        "$((arithmetic))",
-        "eval",
-        "alias",
-        "while",
-        "for",
-        "case",
-        "if",
-        "and",
-        "or",
-        "negate",
-        "heredoc_redir",
-        "dup_redir",
-        "file_redir",
-        "$(substitution)",
-        "function",
-        "assignment",
-        "variable_use",
-        "pipeline",
-        "command",
-    ]
-    feature_counts = {name: 0 for name in features}
-
-    def count_features(node):
-        match node:
-            case AST.BackgroundNode():
-                feature_counts["background"] += 1
-            case AST.PipeNode():
-                feature_counts["pipeline"] += 1
-                if node.is_background:
-                    feature_counts["background"] += 1
-            case AST.SubshellNode():
-                feature_counts["subshell"] += 1
-            case AST.TArgChar():
-                feature_counts["home_tilde"] += 1
-            case AST.AArgChar():
-                feature_counts["$((arithmetic))"] += 1
-            case AST.BArgChar():
-                feature_counts["$(substitution)"] += 1
-            case AST.VArgChar():
-                feature_counts["variable_use"] += 1
-            case AST.AssignNode():
-                feature_counts["assignment"] += 1
-            case AST.DefunNode():
-                feature_counts["function"] += 1
-            case AST.WhileNode():
-                feature_counts["while"] += 1
-            case AST.ForNode():
-                feature_counts["for"] += 1
-            case AST.CaseNode():
-                feature_counts["case"] += 1
-            case AST.IfNode():
-                feature_counts["if"] += 1
-            case AST.AndNode():
-                feature_counts["and"] += 1
-            case AST.OrNode():
-                feature_counts["or"] += 1
-            case AST.NotNode():
-                feature_counts["negate"] += 1
-            case AST.HeredocRedirNode():
-                feature_counts["heredoc_redir"] += 1
-            case AST.DupRedirNode():
-                feature_counts["dup_redir"] += 1
-            case AST.FileRedirNode():
-                feature_counts["file_redir"] += 1
-            case AST.CommandNode():
-                feature_counts["command"] += 1
-                if node.arguments:
-                    cmd_name = AST.string_of_arg(node.arguments[0])
-                    # NB this is conservative---we're detecting static uses of these constructs
-                    if cmd_name == "eval":
-                        feature_counts["eval"] += 1
-                    elif cmd_name == "alias":
-                        feature_counts["alias"] += 1
-            case _:
-                pass
-        return node
-
-    return (count_features, feature_counts)
-
+class Counter:
+    def __init__(self):
+        self.cnt = 0
+    
+    def add(self, n):
+        self.cnt += n
+    
+    def get(self):
+        return self.cnt
 
 def step4_subshells(ast):
     show_step("4: counting shell features")
 
-    (counter, counts) = feature_counter()
-    # FILL IN HERE WITH CALL to `walk_ast` with the `counter` as `visit`
-    # FILL IN HERE WITH LOOP to print out the features (HINT: use the `dict.items` method)
+    subshells = Counter() 
+    # FILL IN HERE WITH CALL to `walk_ast` that counts subshells
+    print("Number of subshells in script:", subshells.get())
 
 ##
 ## Step 5:
