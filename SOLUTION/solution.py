@@ -21,8 +21,7 @@ def show_step(step: str, initial_blank=True):
 
 ##
 ## Step 1:
-##   Parse a script, print its AST, unparse it,
-##   and print the unparsed script.
+##   Parse a script and print its AST.
 ##
 ## You need `utils.parse_shell_to_asts` to parse the shell scripts.
 ##

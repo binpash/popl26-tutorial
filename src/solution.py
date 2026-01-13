@@ -21,8 +21,7 @@ def show_step(step: str, initial_blank=True):
 
 ##
 ## Step 1:
-##   Parse a script, print its AST, unparse it,
-##   and print the unparsed script.
+##   Parse a script and print its AST.
 ##
 ## You need `utils.parse_shell_to_asts` to parse the shell scripts.
 ##
@@ -100,19 +99,22 @@ def step3_unparse(ast):
 class Counter:
     def __init__(self):
         self.cnt = 0
-    
+
     def add(self, n):
         self.cnt += n
-    
+
     def get(self):
         return self.cnt
 
 def step4_subshells(ast):
     show_step("4: counting shell features")
 
-    subshells = Counter() 
+    subshells = Counter()
+
     # FILL IN HERE WITH CALL to `walk_ast` that counts subshells
-    print("Number of subshells in script:", subshells.get())
+    count = subshells.get()
+    print("Number of subshells in script:", count)
+    return count
 
 ##
 ## Step 5:
@@ -362,6 +364,11 @@ def main():
     ## Step 4: Feature counter
     # Uncomment when you get to step 4
     # step4_subshells(original_ast) 
+
+    # Uncomment when you get to step 4
+    # subshell_test = step1_parse_script("sh/subshells.sh") 
+    # subshell_count = step4_subshells(subshell_test) 
+    # assert 4 <= subshell_count and subshell_count <= 5, "subshell counting is not correct" 
 
     ## Step 5: Safe to expand subtrees
 
