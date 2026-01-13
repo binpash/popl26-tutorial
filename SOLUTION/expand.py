@@ -58,7 +58,7 @@ def command_prepender(exp_state: expand.ExpansionState, unsafe_commands=None):
                 #
                 # Hint: don't forget `string_to_argchars`
                 return AST.CommandNode( # REPLACE # return # FILL IN HERE with a new `CommandNode` that prepends the command with `try`
-                        arguments=try_prefix_args + node.arguments if len(node.arguments) > 0 else [], # REMOVE
+                        arguments=try_prefix_args + node.arguments, # REMOVE
                         assignments=node.assignments, # REMOVE
                         redir_list=node.redir_list, # REMOVE
                         line_number=node.line_number # REMOVE
