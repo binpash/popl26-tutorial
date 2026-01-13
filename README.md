@@ -17,4 +17,4 @@ Docker (built from the repo)
 - Run with current directory mounted: `docker run --rm -it --privileged -v "$PWD":/app popl26-tutorial`
 
 Note: `try` requires `unshare` and mount privileges; `--privileged` enables those in Docker.
-Note: The image PATH includes `/opt/venv/bin` and `./bin`. Local development may also want to add these to `PATH`.
+Note: The image PATH includes `/opt/venv/bin` and `./bin`. Local development may also want to add these to `PATH`. These are setup for you in the Docker container.
