@@ -355,15 +355,20 @@ def main():
 
     ## Step 2: Walk and print
     # Uncomment when you get to step 2
-    # step2_walk_print(original_ast) 
+    # step2_walk_print(original_ast)
 
     ## Step 3: Unparse
     # Uncomment when you get to step 3
-    # step3_unparse(original_ast) 
+    # step3_unparse(original_ast)
 
     ## Step 4: Feature counter
     # Uncomment when you get to step 4
-    # step4_subshells(original_ast) 
+    # step4_subshells(original_ast)
+
+    # Uncomment when you get to step 4
+    # subshell_test = step1_parse_script("sh/subshells.sh")
+    # subshell_count = step4_subshells(subshell_test)
+    # assert subshell_count in [4, 5], "subshell counting is not correct"
 
     # Uncomment when you get to step 4
     # subshell_test = step1_parse_script("sh/subshells.sh") 
@@ -374,34 +379,34 @@ def main():
 
     # tests for is_effect_free
     # Uncomment when you get to step 5
-    # ef_test = step1_parse_script("sh/effectful.sh") 
-    # for (node, _, _, _) in ef_test: 
-        # pretty = node.pretty() 
-        # safe = is_effect_free(node) 
-        # assert safe == ("I am not effectful" in pretty) 
-    # print("🎉 CONGRATULATIONS! YOU WROTE YOUR FIRST SHELL ANALYSIS!!!!! 🎉") 
+    # ef_test = step1_parse_script("sh/effectful.sh")
+    # for (node, _, _, _) in ef_test:
+        # pretty = node.pretty()
+        # safe = is_effect_free(node)
+        # assert safe == ("I am not effectful" in pretty)
+    # print("🎉 CONGRATULATIONS! YOU WROTE YOUR FIRST SHELL ANALYSIS!!!!! 🎉")
 
-    # step5_effect_free(original_ast) 
+    # step5_effect_free(original_ast)
 
     ## Part 2
 
     ## Step 6: Preprocess and print each command
     # Uncomment when you get to step 6
-    # preprocessed_script = step6_stubs(original_ast) 
-    # with open(f"{input_script}.preprocessed.1", "w", encoding="utf-8") as out_file: 
-        # print(preprocessed_script, file=out_file) 
+    # preprocessed_script = step6_stubs(original_ast)
+    # with open(f"{input_script}.preprocessed.1", "w", encoding="utf-8") as out_file:
+        # print(preprocessed_script, file=out_file)
 
     ## Step 7: Preprocess using the JIT
     # Uncomment when you get to step 7
-    # preprocessed_script = step7_debug_jit(original_ast) 
-    # with open(f"{input_script}.preprocessed.2", "w", encoding="utf-8") as out_file: 
-        # print(preprocessed_script, file=out_file) 
+    # preprocessed_script = step7_debug_jit(original_ast)
+    # with open(f"{input_script}.preprocessed.2", "w", encoding="utf-8") as out_file:
+        # print(preprocessed_script, file=out_file)
 
     ## Step 8: Preprocess using the JIT and expand before executing
     # Uncomment when you get to step 8
-    # preprocessed_script = step8_try_unsafe(original_ast) 
-    # with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file: 
-        # print(preprocessed_script, file=out_file) 
+    # preprocessed_script = step8_try_unsafe(original_ast)
+    # with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
+        # print(preprocessed_script, file=out_file)
 
 
 if __name__ == "__main__":

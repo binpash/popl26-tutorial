@@ -397,7 +397,7 @@ def main():
     # REPLACE # Uncomment when you get to step 4
     subshell_test = step1_parse_script("sh/subshells.sh") # COMMENT
     subshell_count = step4_subshells(subshell_test) # COMMENT
-    assert 4 <= subshell_count and subshell_count <= 5, "subshell counting is not correct" # COMMENT
+    assert subshell_count in [4, 5], "subshell counting is not correct" # COMMENT
 
     ## Step 5: Safe to expand subtrees
 
