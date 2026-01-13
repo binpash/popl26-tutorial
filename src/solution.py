@@ -370,11 +370,6 @@ def main():
     # subshell_count = step4_subshells(subshell_test)
     # assert subshell_count in [4, 5], "subshell counting is not correct"
 
-    # Uncomment when you get to step 4
-    # subshell_test = step1_parse_script("sh/subshells.sh") 
-    # subshell_count = step4_subshells(subshell_test) 
-    # assert 4 <= subshell_count and subshell_count <= 5, "subshell counting is not correct" 
-
     ## Step 5: Safe to expand subtrees
 
     # tests for is_effect_free
@@ -405,8 +400,11 @@ def main():
     ## Step 8: Preprocess using the JIT and expand before executing
     # Uncomment when you get to step 8
     # preprocessed_script = step8_try_unsafe(original_ast)
-    # with open(f"{input_script}.preprocessed.3", "w", encoding="utf-8") as out_file:
+    # with open(f"{input_script}.safe", "w", encoding="utf-8") as out_file:
         # print(preprocessed_script, file=out_file)
+    # print()
+    # print(f"The transformed safer to run script is stored in: {input_script}.safe")
+    # print()
 
 
 if __name__ == "__main__":
